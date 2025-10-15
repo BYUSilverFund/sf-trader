@@ -8,3 +8,8 @@ dependencies = [
     "ib-insync>=0.9.86",
     "sf-quant>=0.1.13",
 ]
+
+[dependency-groups]
+dev = [
+    "rich>=14.2.0",
+]

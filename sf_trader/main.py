@@ -1,37 +1,40 @@
-from ib_insync import IB
+import silverfund
+import ibkr
+from rich import print
+import polars as pl
 
-def get_account_value():
-    # Create an IB instance
-    ib = IB()
+# Note: need to fix ticker mapping
 
-    # Connect to TWS or IB Gateway
-    # Default ports: TWS live=7496, TWS paper=7497, Gateway live=4001, Gateway paper=4002
-    ib.connect('127.0.0.1', 7497, clientId=1)
+if __name__ == '__main__':
+    # ===== Parameters =====
+    gamma = 50
+    decimal_places = 4
 
-    # Request account summary
-    account_summary = ib.accountSummary()
+    # ===== Get Tickers =====
+    tickers = silverfund.get_tickers()[0:100]
 
-    # Get account values
-    account_values = ib.accountValues()
+    print(pl.DataFrame({'ticker': tickers}))
 
-    print("\n=== Account Summary ===")
-    for item in account_summary:
-        if item.tag in ['NetLiquidation', 'TotalCashValue', 'BuyingPower', 'GrossPositionValue']:
-            print(f"{item.tag}: {item.value} {item.currency}")
+    # ===== Get Prices =====
+    prices = ibkr.get_prices(tickers=tickers)
+    print()
+    print("="*60)
+    print("Prices")
+    print("="*60)
+    print(prices)
+    print()
 
-    print("\n=== Key Account Values ===")
-    for value in account_values:
-        if value.tag in ['NetLiquidation', 'TotalCashValue', 'BuyingPower', 'AvailableFunds']:
-            print(f"{value.tag}: {value.value} {value.currency} (Account: {value.account})")
+    # # ===== Compute Optimal Weights =====
+    # weights = silverfund.get_portfolio_weights(gamma=gamma, decimal_places=4)
+    # silverfund.create_portfolio_summary(weights)
 
-    # Get specific net liquidation value
-    net_liquidation = [v for v in account_values if v.tag == 'NetLiquidation']
-    if net_liquidation:
-        print(f"\n=== Total Account Value ===")
-        for nl in net_liquidation:
-            print(f"Account {nl.account}: {nl.value} {nl.currency}")
+    # # ===== Get Available Funds =====
+    # available_funds = ibkr.get_available_funds()
+    # print()
+    # print("="*60)
+    # print(f"Available Funds:", available_funds)
+    # print("="*60)
+    # print()
 
-    ib.disconnect()
+    # # ===== Compute Optimal Shares =====
 
-if __name__ == "__main__":
-    get_account_value()
