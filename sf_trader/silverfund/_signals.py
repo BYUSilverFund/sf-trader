@@ -43,3 +43,28 @@ beta = Signal(
     ),
     lookback_days=0
 )
+
+# Registry for easy lookup
+SIGNALS = {
+    'momentum': momentum,
+    'reversal': reversal,
+    'beta': beta,
+}
+
+def get_signal(name: str) -> Signal:
+    """
+    Get a signal by name
+
+    Args:
+        name: Name of the signal ('momentum', 'reversal', 'beta')
+
+    Returns:
+        Signal instance
+
+    Raises:
+        ValueError: If signal name is not found
+    """
+    if name not in SIGNALS:
+        raise ValueError(f"Unknown signal: {name}. Available: {list(SIGNALS.keys())}")
+
+    return SIGNALS[name]
