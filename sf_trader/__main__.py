@@ -113,8 +113,17 @@ def main(config: Path, dry_run: bool):
         available_funds=available_funds
     )
 
-    # 10. Execute trades
-    console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+    # 10. Check portfolio metrics
+    portfolio_metrics = execute_step(
+        "Computing portfolio metrics",
+        pu.create_portfolio_summary_with_trades,
+        trades,
+        trade_date,
+        available_funds
+    )
+
+    # # 11. Execute trades
+    # console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
     
 if __name__ == '__main__':
     main()
