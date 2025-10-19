@@ -204,6 +204,9 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         .with_columns(
             pl.col("weight").sub(pl.col("weight_bmk")).alias("weight_act")
         )
+        .with_columns(
+            (pl.col("weight").truediv(pl.col("weight_bmk")).sub(1)).alias("pct_chg_bmk")
+        )
         .sort("barrid")
     )
 
@@ -248,6 +251,7 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         long_table.add_column("Dollars", justify="right", style="green")
         long_table.add_column("Weight", justify="right", style="green")
         long_table.add_column("Active", justify="right", style="yellow")
+        long_table.add_column("% Chg Bmk", justify="right", style="magenta")
 
         for row in long_positions.iter_rows(named=True):
             ticker = row.get("ticker", "N/A")
@@ -256,13 +260,15 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
             dollars = row["dollars"]
             weight = row["weight"]
             active = row["weight_act"]
+            pct_chg_bmk = row["pct_chg_bmk"]
             long_table.add_row(
                 ticker,
                 f"{shares:,.0f}",
                 f"${price:.2f}",
                 f"${dollars:,.0f}",
                 f"{weight:.2%}",
-                f"{active:+.2%}"
+                f"{active:+.2%}",
+                f"{pct_chg_bmk:+.2%}"
             )
 
         console.print()
@@ -278,6 +284,7 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         short_table.add_column("Dollars", justify="right", style="red")
         short_table.add_column("Weight", justify="right", style="red")
         short_table.add_column("Active", justify="right", style="yellow")
+        short_table.add_column("% Chg Bmk", justify="right", style="magenta")
 
         for row in short_positions.iter_rows(named=True):
             ticker = row.get("ticker", "N/A")
@@ -286,13 +293,15 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
             dollars = row["dollars"]
             weight = row["weight"]
             active = row["weight_act"]
+            pct_chg_bmk = row["pct_chg_bmk"]
             short_table.add_row(
                 ticker,
                 f"{shares:,.0f}",
                 f"${price:.2f}",
                 f"${dollars:,.0f}",
                 f"{weight:.2%}",
-                f"{active:+.2%}"
+                f"{active:+.2%}",
+                f"{pct_chg_bmk:+.2%}"
             )
 
         console.print()

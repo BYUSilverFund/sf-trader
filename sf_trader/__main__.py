@@ -90,7 +90,7 @@ def main(config: Path, dry_run: bool):
         "Filtering tradable tickers",
         pu.get_tradable_tickers,
         prices,
-        success_formatter=lambda result: f"Filtering tradable tickers ([cyan]{len(result):,}[/cyan] tradable)"
+        success_formatter=lambda result: f"Filtering tradable tickers ([cyan]{len(result):,}[/cyan] tradable tickers)"
     )
 
     # 6. Get data
