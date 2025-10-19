@@ -9,5 +9,5 @@ constraints:
 - long-only
 - no-buying-on-margin
 - unit-beta
-gamma: 500
+gamma: 450
 decimal-places: 4

@@ -13,12 +13,23 @@ from typing import Callable, Any
 
 console = Console()
 
-def execute_step(step_name: str, func: Callable, *args, **kwargs) -> Any:
-    """Execute a step with a spinner and show success/failure status."""
+def execute_step(step_name: str, func: Callable, *args, success_formatter: Callable[[Any], str] | None = None, **kwargs) -> Any:
+    """Execute a step with a spinner and show success/failure status.
+
+    Args:
+        step_name: Name of the step to display
+        func: Function to execute
+        success_formatter: Optional function to format success message with result
+        *args, **kwargs: Arguments to pass to func
+    """
     with console.status(f"[bold blue]{step_name}...", spinner="dots"):
         try:
             result = func(*args, **kwargs)
-            console.print(f"[green]✓[/green] {step_name}")
+            if success_formatter:
+                success_msg = success_formatter(result)
+                console.print(f"[green]✓[/green] {success_msg}")
+            else:
+                console.print(f"[green]✓[/green] {step_name}")
             return result
         except Exception as e:
             console.print(f"[red]✗[/red] {step_name}")
@@ -55,13 +66,15 @@ def main(config: Path, dry_run: bool):
     tickers = execute_step(
         "Loading trading universe",
         du.get_tickers,
-        trade_date=trade_date
+        trade_date=trade_date,
+        success_formatter=lambda result: f"Loading trading universe ([cyan]{len(result):,}[/cyan] tickers)"
     )
 
     # 3. Get account value
     available_funds = execute_step(
         "Fetching available funds",
-        du.get_available_funds
+        du.get_available_funds,
+        success_formatter=lambda result: f"Fetching available funds ([cyan]${result:,.0f}[/cyan])"
     )
 
     # 4. Get prices
@@ -76,7 +89,8 @@ def main(config: Path, dry_run: bool):
     tradable_tickers = execute_step(
         "Filtering tradable tickers",
         pu.get_tradable_tickers,
-        prices
+        prices,
+        success_formatter=lambda result: f"Filtering tradable tickers ([cyan]{len(result):,}[/cyan] tradable)"
     )
 
     # 6. Get data
@@ -118,7 +132,7 @@ def main(config: Path, dry_run: bool):
     )
 
     # 10. Check portfolio metrics
-    portfolio_metrics = execute_step(
+    execute_step(
         "Computing portfolio metrics",
         pu.create_portfolio_summary_with_trades,
         trades,
@@ -126,8 +140,8 @@ def main(config: Path, dry_run: bool):
         available_funds
     )
 
-    # # 11. Execute trades
-    # console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+    # 11. Execute trades
+    console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
     
 if __name__ == '__main__':
     main()

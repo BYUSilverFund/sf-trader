@@ -178,7 +178,10 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         (pl.col("dollars") / pl.lit(available_funds)).alias("weight")
     ).sort("barrid")
 
-    barrids = trades_df["barrid"].to_list()
+    # Get benchmark weights
+    benchmark = sfd.load_benchmark(start=trade_date, end=trade_date).sort('barrid')
+
+    barrids = benchmark["barrid"].to_list()
 
     # Get covariance matrix
     covariance_matrix = (
@@ -187,19 +190,19 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         .to_numpy()
     )
 
-    # Get benchmark weights
-    benchmark_weights = sfd.load_benchmark(start=trade_date, end=trade_date)
-
     trades_merge = (
-        trades_df.join(
-            benchmark_weights.select("barrid", "weight"),
+        benchmark
+        .select('barrid', pl.col('weight').alias('weight_bmk'))
+        .join(
+            trades_df,
             on="barrid",
             how="left",
-            suffix="_bmk",
         )
         .with_columns(
-            pl.col("weight_bmk").fill_null(0),
-            pl.col("weight").sub(pl.col("weight_bmk").fill_null(0)).alias("weight_act")
+            pl.col("weight").fill_null(0),
+        )
+        .with_columns(
+            pl.col("weight").sub(pl.col("weight_bmk")).alias("weight_act")
         )
         .sort("barrid")
     )
