@@ -4,6 +4,10 @@ from sf_trader.models import Config
 from sf_trader.signals import get_signal
 from sf_trader.combinators import get_combinator
 from sf_trader.constraints import get_constraint
+from rich.status import Status
+from rich.table import Table
+from rich.panel import Panel
+from rich.console import Console
 
 class ConfigError(Exception):
     """Raised when configuration is invalid"""
@@ -93,3 +97,36 @@ def load_config(config_path: Path) -> Config:
         )
     except Exception as e:
         raise ConfigError(f"Failed to build configuration: {e}")
+    
+
+def print_config(cfg: Config, console: Console) -> None:
+    """Display the trading configuration in a formatted table."""
+
+    # Signals section
+    signals_table = Table(show_header=False, box=None, padding=(0, 2))
+    signals_table.add_column("Item", style="cyan")
+    signals_table.add_column("Value", style="white")
+
+    for signal in cfg.signals:
+        signals_table.add_row(f"- {signal.name}")
+
+    # Optimization parameters
+    params_table = Table(show_header=False, box=None, padding=(0, 2))
+    params_table.add_column("Parameter", style="cyan")
+    params_table.add_column("Value", style="bold white")
+
+    params_table.add_row("Signal Combinator", cfg.signal_combinator.name)
+    params_table.add_row("Information Coefficient", f"{cfg.ic:.2%}")
+    params_table.add_row("Risk Aversion (γ)", f"{cfg.gamma:,.0f}")
+    params_table.add_row("Decimal Places", str(cfg.decimal_places))
+
+    # Constraints section
+    constraints_table = Table(show_header=False, box=None, padding=(0, 2))
+    constraints_table.add_column("Constraint", style="cyan")
+
+    for constraint in cfg.constraints:
+        constraints_table.add_row(f"- {constraint.__class__.__name__}")
+
+    console.print(Panel(signals_table, title="[bold cyan]Signals[/bold cyan]", border_style="cyan"))
+    console.print(Panel(params_table, title="[bold cyan]Optimization Parameters[/bold cyan]", border_style="cyan"))
+    console.print(Panel(constraints_table, title="[bold cyan]Constraints[/bold cyan]", border_style="cyan"))

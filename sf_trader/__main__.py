@@ -2,10 +2,13 @@ import click
 from pathlib import Path
 from rich.console import Console
 from rich.status import Status
+from rich.table import Table
+from rich.panel import Panel
 import datetime as dt
 import sf_trader.data_utils as du
 import sf_trader.portfolio_utils as pu
 import sf_trader.config_utils as cu
+from sf_trader.models import Config
 from typing import Callable, Any
 
 console = Console()
@@ -46,6 +49,7 @@ def main(config: Path, dry_run: bool):
         cu.load_config,
         config
     )
+    cu.print_config(cfg, console=console)
 
     # 2. Get universe
     tickers = execute_step(
