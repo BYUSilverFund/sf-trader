@@ -1476,7 +1476,7 @@ wheels = [
 
 [[package]]
 name = "sf-quant"
-version = "0.1.13"
+version = "0.1.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cvxpy" },
@@ -1488,9 +1488,9 @@ dependencies = [
     { name = "seaborn" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/2b/0b12206ed760debb2f3cdd316c63bdff1af186e18fdbc1c1a416eb778c1d/sf_quant-0.1.13.tar.gz", hash = "sha256:add695cd0a5b2b2c14c194e76b9fe0ac57a04ac1c84a34015a9171202ba15242", size = 129052, upload-time = "2025-09-29T18:14:10.845Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/5b/e1cd2a7073a23a9c5bd67816caa3fb28b517029d92a9552ae21d624f6723/sf_quant-0.1.14.tar.gz", hash = "sha256:50b86e0872f50c2db961c10ba8ac086b4b1531f444a7bb6829f91ce9d78c0fca", size = 128998, upload-time = "2025-10-18T18:41:48.17Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/38/858c358f2b598bc2669b1f59a77645b78fa7c8a416b95a474d4f7184ebf8/sf_quant-0.1.13-py3-none-any.whl", hash = "sha256:1908c4608729c7bf08659a186c71320cdc0991895207202e8dc3f4d3b48c8b16", size = 26414, upload-time = "2025-09-29T18:14:10.005Z" },
+    { url = "https://files.pythonhosted.org/packages/13/b9/b3a1e9415c34402ba0b0a6d61bd2dbe6b754ff96d9d2addc3470cfb26431/sf_quant-0.1.14-py3-none-any.whl", hash = "sha256:03fe54b47a2dcd011e77848352f218c9f92e20a651baf7e52fd0517e445799e7", size = 26138, upload-time = "2025-10-18T18:41:47.276Z" },
 ]
 
 [[package]]
@@ -1510,7 +1510,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ib-insync", specifier = ">=0.9.86" },
-    { name = "sf-quant", specifier = ">=0.1.13" },
+    { name = "sf-quant", specifier = ">=0.1.14" },
 ]
 
 [package.metadata.requires-dev]

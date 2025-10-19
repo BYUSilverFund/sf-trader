@@ -1,0 +1,11 @@
+signals:
+- momentum
+- reversal
+- beta
+signal-combinator: mean
+constraints:
+- full-investment
+- long-only
+- no-buying-on-margin
+- unit-beta
+gamma: 500
