@@ -1,33 +1,16 @@
-from dataclasses import dataclass
 from pathlib import Path
 import yaml
-from sf_trader.models import Signal, SignalCombinator
-from sf_trader.silverfund._signals import get_signal
-from sf_trader.silverfund._combinators import get_combinator
-from sf_trader.silverfund._constraints import get_constraint
-from sf_quant.optimizer.constraints import Constraint
+from sf_trader.models import Config
+from sf_trader.signals import get_signal
+from sf_trader.combinators import get_combinator
+from sf_trader.constraints import get_constraint
 
 class ConfigError(Exception):
     """Raised when configuration is invalid"""
     pass
 
 
-@dataclass
-class TradingConfig:
-    """Trading system configuration"""
-    
-    # Signals
-    signals: list[Signal]
-    signal_combinator: SignalCombinator
-    
-    # Constraints
-    constraints: list[Constraint]
-    
-    # Risk parameters
-    gamma: float = 500.0
-
-
-def load_config(config_path: Path) -> TradingConfig:
+def load_config(config_path: Path) -> Config:
     """
     Load and parse configuration from YAML file
     
@@ -66,6 +49,11 @@ def load_config(config_path: Path) -> TradingConfig:
         signals = [get_signal(name) for name in signal_names]
     except ValueError as e:
         raise ConfigError(f"Invalid signal configuration: {e}")
+    
+    # Get ic parameter
+    ic = raw_config.get('ic')
+    if not isinstance(ic, (float)):
+        raise ConfigError(f"'gamma' must be a float, got {type(ic).__name__}")
 
     # Parse and build signal combinator
     try:
@@ -87,14 +75,21 @@ def load_config(config_path: Path) -> TradingConfig:
     gamma = raw_config.get('gamma')
     if not isinstance(gamma, (int, float)):
         raise ConfigError(f"'gamma' must be a number, got {type(gamma).__name__}")
+    
+    # Get decimal_places parameter
+    decimal_places = raw_config.get('decimal-places')
+    if not isinstance(decimal_places, (int)):
+        raise ConfigError(f"'decimal_places' must be an integer, got {type(decimal_places).__name__}")
 
     # Build and return config
     try:
-        return TradingConfig(
+        return Config(
             signals=signals,
+            ic=float(ic),
             signal_combinator=signal_combinator,
             constraints=constraints,
-            gamma=float(gamma)
+            gamma=float(gamma),
+            decimal_places=int(decimal_places),
         )
     except Exception as e:
         raise ConfigError(f"Failed to build configuration: {e}")

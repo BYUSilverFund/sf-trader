@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import polars as pl
 from typing import Callable, List
+from sf_quant.optimizer.constraints import Constraint
 
 @dataclass
 class Signal:
@@ -27,3 +28,17 @@ class SignalCombinator:
         """
         signal_names = [signal.name for signal in signals]
         return self.combine_fn(signal_names)
+    
+@dataclass
+class Config:
+    """Trading system configuration"""
+    
+    # Signals
+    signals: list[Signal]
+    ic: float
+    signal_combinator: SignalCombinator
+    
+    # Portfolio optimization
+    constraints: list[Constraint]
+    gamma: float
+    decimal_places: int

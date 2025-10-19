@@ -2,6 +2,7 @@ signals:
 - momentum
 - reversal
 - beta
+ic: .05
 signal-combinator: mean
 constraints:
 - full-investment
@@ -9,3 +10,4 @@ constraints:
 - no-buying-on-margin
 - unit-beta
 gamma: 500
+decimal-places: 4
