@@ -37,7 +37,7 @@ def get_trades(weights: pl.DataFrame, prices: pl.DataFrame, config: Config, avai
         )
         .to_dicts()
     )
-def get_alphas(df: pl.DataFrame, config: Config) -> pl.DataFrame:
+def get_alphas(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
     signals = config.signals
     signal_combinator = config.signal_combinator
     ic = config.ic
@@ -65,6 +65,11 @@ def get_alphas(df: pl.DataFrame, config: Config) -> pl.DataFrame:
         # Combine alphas
         .with_columns(
             signal_combinator.combine_fn([signal.name for signal in signals])
+        )
+        # Get trade date
+        .filter(
+            pl.col('date')
+            .eq(trade_date)
         )
         .select(
             'date',
