@@ -84,6 +84,12 @@ def main(config: Path, dry_run: bool):
             du.get_barra_prices,
             trade_date=trade_date
         )
+    else:
+        prices = execute_step(
+            "Fetching prices from IBKR",
+            du.get_ibkr_prices,
+            tickers=tickers
+        )
 
     # 5. Get tradable universe
     tradable_tickers = execute_step(

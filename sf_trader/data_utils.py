@@ -77,3 +77,47 @@ def get_available_funds():
     ib.disconnect()
 
     return float(available_funds)
+
+def get_ibkr_prices(tickers: list[str]) -> pl.DataFrame:
+    from ib_insync import IB, Stock
+    import asyncio
+
+    ib = IB()
+    ib.connect('127.0.0.1', 7497, clientId=1)
+
+    # Request delayed market data
+    ib.reqMarketDataType(3)  # 3 = delayed data, 4 = delayed-frozen
+    tickers = [Stock(ticker.replace('.', ' '), 'SMART', 'USD') for ticker in tickers]
+
+    async def get_snapshots_batch(contracts, batch_size=50):
+        results = []
+        for i in range(0, len(contracts), batch_size):
+            batch = contracts[i:i+batch_size]
+            tickers = [ib.reqMktData(contract, '', True) for contract in batch]
+            await asyncio.sleep(2)  # Wait for data to arrive
+            results.extend(tickers)
+        return results
+
+    # Run it
+    snapshots = ib.run(get_snapshots_batch(tickers))
+
+    # Convert to DataFrame
+    data = []
+    for ticker in snapshots:
+        data.append({
+            'symbol': ticker.contract.symbol,
+            'time': ticker.time,
+            'bid': ticker.bid,
+            'ask': ticker.ask,
+            'last': ticker.last,
+            'volume': ticker.volume,
+            'open': ticker.open,
+            'high': ticker.high,
+            'low': ticker.low,
+            'close': ticker.close,
+            'bid_size': ticker.bidSize,
+            'ask_size': ticker.askSize,
+            'last_size': ticker.lastSize,
+        })
+
+    return pl.DataFrame(data)
