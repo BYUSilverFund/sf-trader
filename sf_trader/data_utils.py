@@ -1,7 +1,8 @@
 import datetime as dt
 import polars as pl
 import sf_quant.data as sfd
-from ib_insync import IB
+from ib_insync import IB, Stock
+import asyncio
 
 def get_asset_data(tickers: list[str], trade_date: dt.date, lookback_days: int) -> pl.DataFrame:
     start_date = trade_date - dt.timedelta(days=lookback_days)
@@ -78,34 +79,41 @@ def get_available_funds():
 
     return float(available_funds)
 
-def get_ibkr_prices(tickers: list[str]) -> pl.DataFrame:
-    from ib_insync import IB, Stock
-    import asyncio
+def get_ibkr_prices(tickers: list[str], status=None) -> pl.DataFrame:
+    if status:
+        status.update("[bold blue]Fetching prices from IBKR... Connecting")
 
     ib = IB()
     ib.connect('127.0.0.1', 7497, clientId=1)
 
     # Request delayed market data
     ib.reqMarketDataType(3)  # 3 = delayed data, 4 = delayed-frozen
-    tickers = [Stock(ticker.replace('.', ' '), 'SMART', 'USD') for ticker in tickers]
+    contracts = [Stock(ticker.replace('.', ' '), 'SMART', 'USD') for ticker in tickers] # IBKR uses "BRK B" not "BRK.B"
 
     async def get_snapshots_batch(contracts, batch_size=50):
         results = []
+        num_batches = (len(contracts) + batch_size - 1) // batch_size
         for i in range(0, len(contracts), batch_size):
             batch = contracts[i:i+batch_size]
+            batch_num = i // batch_size + 1
+            if status:
+                status.update(f"[bold blue]Fetching prices from IBKR... Batch {batch_num}/{num_batches}")
             tickers = [ib.reqMktData(contract, '', True) for contract in batch]
             await asyncio.sleep(2)  # Wait for data to arrive
             results.extend(tickers)
         return results
 
     # Run it
-    snapshots = ib.run(get_snapshots_batch(tickers))
+    snapshots = ib.run(get_snapshots_batch(contracts))
+
+    if status:
+        status.update("[bold blue]Fetching prices from IBKR... Converting to DataFrame")
 
     # Convert to DataFrame
     data = []
     for ticker in snapshots:
         data.append({
-            'symbol': ticker.contract.symbol,
+            'ticker': ticker.contract.symbol,
             'time': ticker.time,
             'bid': ticker.bid,
             'ask': ticker.ask,
@@ -120,4 +128,12 @@ def get_ibkr_prices(tickers: list[str]) -> pl.DataFrame:
             'last_size': ticker.lastSize,
         })
 
-    return pl.DataFrame(data)
+    ib.disconnect()
+
+    return (
+        pl.DataFrame(data)
+        .select(
+            'ticker',
+            pl.mean_horizontal('bid', 'ask').alias('price')
+        )
+    )

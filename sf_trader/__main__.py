@@ -1,29 +1,28 @@
 import click
 from pathlib import Path
 from rich.console import Console
-from rich.status import Status
-from rich.table import Table
-from rich.panel import Panel
 import datetime as dt
 import sf_trader.data_utils as du
 import sf_trader.portfolio_utils as pu
 import sf_trader.config_utils as cu
-from sf_trader.models import Config
 from typing import Callable, Any
 
 console = Console()
 
-def execute_step(step_name: str, func: Callable, *args, success_formatter: Callable[[Any], str] | None = None, **kwargs) -> Any:
+def execute_step(step_name: str, func: Callable, *args, success_formatter: Callable[[Any], str] | None = None, pass_status: bool = False, **kwargs) -> Any:
     """Execute a step with a spinner and show success/failure status.
 
     Args:
         step_name: Name of the step to display
         func: Function to execute
         success_formatter: Optional function to format success message with result
+        pass_status: If True, pass the status object to func as 'status' kwarg
         *args, **kwargs: Arguments to pass to func
     """
-    with console.status(f"[bold blue]{step_name}...", spinner="dots"):
+    with console.status(f"[bold blue]{step_name}...", spinner="dots") as status:
         try:
+            if pass_status:
+                kwargs['status'] = status
             result = func(*args, **kwargs)
             if success_formatter:
                 success_msg = success_formatter(result)
@@ -88,7 +87,8 @@ def main(config: Path, dry_run: bool):
         prices = execute_step(
             "Fetching prices from IBKR",
             du.get_ibkr_prices,
-            tickers=tickers
+            tickers=tickers,
+            pass_status=True
         )
 
     # 5. Get tradable universe
