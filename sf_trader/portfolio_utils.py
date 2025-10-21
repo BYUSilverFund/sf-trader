@@ -12,7 +12,7 @@ def get_tradable_tickers(df: pl.DataFrame) -> list[str]:
     return (
         df
         .filter(
-            pl.col('price').ge(5)
+            pl.col('price').ge(5),
         )
         ['ticker']
         .unique()
@@ -20,7 +20,7 @@ def get_tradable_tickers(df: pl.DataFrame) -> list[str]:
         .to_list()
     )
 
-def get_trades(weights: pl.DataFrame, prices: pl.DataFrame, config: Config, available_funds: float) -> list[dict]:
+def get_trades(weights: pl.DataFrame, prices: pl.DataFrame, config: Config, available_funds: float) -> pl.DataFrame:
     return (
         weights
         .join(
@@ -39,7 +39,6 @@ def get_trades(weights: pl.DataFrame, prices: pl.DataFrame, config: Config, avai
             'price',
             'shares'
         )
-        .to_dicts()
     )
 def get_alphas(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
     signals = config.signals

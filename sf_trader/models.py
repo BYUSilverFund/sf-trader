@@ -32,6 +32,8 @@ class SignalCombinator:
 @dataclass
 class Config:
     """Trading system configuration"""
+    # Universe
+    ignore_tickers: list[str]
     
     # Signals
     signals: list[Signal]

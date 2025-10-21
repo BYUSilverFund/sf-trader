@@ -3,6 +3,7 @@ import polars as pl
 import sf_quant.data as sfd
 from ib_insync import IB, Stock
 import asyncio
+from sf_trader.models import Config
 
 def get_asset_data(tickers: list[str], trade_date: dt.date, lookback_days: int) -> pl.DataFrame:
     start_date = trade_date - dt.timedelta(days=lookback_days)
@@ -32,12 +33,15 @@ def get_asset_data(tickers: list[str], trade_date: dt.date, lookback_days: int) 
         .sort('barrid', 'date')
     )
 
-def get_tickers(trade_date: dt.date) -> pl.DataFrame:
+def get_tickers(trade_date: dt.date, config: Config) -> pl.DataFrame:
     return (
         sfd.load_assets_by_date(
             date_=trade_date,
             columns=['ticker'],
             in_universe=True
+        )
+        .filter(
+            pl.col('ticker').is_in(config.ignore_tickers).not_()
         )
         ['ticker']
         .unique()

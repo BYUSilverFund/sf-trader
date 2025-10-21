@@ -44,6 +44,14 @@ def load_config(config_path: Path) -> Config:
     
     if not raw_config:
         raise ConfigError("Configuration file is empty")
+    
+    # Parse ignored tickers
+    try:
+        ignore_tickers = raw_config.get('ignore-tickers', [])
+        if not isinstance(ignore_tickers, list):
+            raise ConfigError("'ignore_tickers' must be a list of tickers")
+    except ValueError as e:
+        raise ConfigError(f"Invalid ignore_tickers configuration: {e}")
 
     # Parse and build signals
     try:
@@ -88,6 +96,7 @@ def load_config(config_path: Path) -> Config:
     # Build and return config
     try:
         return Config(
+            ignore_tickers=ignore_tickers,
             signals=signals,
             ic=float(ic),
             signal_combinator=signal_combinator,
@@ -101,12 +110,15 @@ def load_config(config_path: Path) -> Config:
 
 def print_config(cfg: Config, console: Console) -> None:
     """Display the trading configuration in a formatted table."""
+    # Universe section
+    universe_table = Table(show_header=False, box=None, padding=(0, 2))
+    universe_table.add_column("Ticker", style="cyan")
+    for ticker in cfg.ignore_tickers:
+        universe_table.add_row(f"- {ticker}")
 
     # Signals section
     signals_table = Table(show_header=False, box=None, padding=(0, 2))
-    signals_table.add_column("Item", style="cyan")
-    signals_table.add_column("Value", style="white")
-
+    signals_table.add_column("Signal", style="cyan")
     for signal in cfg.signals:
         signals_table.add_row(f"- {signal.name}")
 
@@ -127,6 +139,7 @@ def print_config(cfg: Config, console: Console) -> None:
     for constraint in cfg.constraints:
         constraints_table.add_row(f"- {constraint.__class__.__name__}")
 
+    console.print(Panel(universe_table, title="[bold cyan]Ignore Tickers[/bold cyan]", border_style="cyan"))
     console.print(Panel(signals_table, title="[bold cyan]Signals[/bold cyan]", border_style="cyan"))
     console.print(Panel(params_table, title="[bold cyan]Optimization Parameters[/bold cyan]", border_style="cyan"))
     console.print(Panel(constraints_table, title="[bold cyan]Constraints[/bold cyan]", border_style="cyan"))

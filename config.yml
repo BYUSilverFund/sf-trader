@@ -11,3 +11,8 @@ constraints:
 - unit-beta
 gamma: 450
 decimal-places: 4
+ignore-tickers:
+- AVDX
+- WNS
+- VBTX
+- ZIMV

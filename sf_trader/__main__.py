@@ -5,7 +5,9 @@ import datetime as dt
 import sf_trader.data_utils as du
 import sf_trader.portfolio_utils as pu
 import sf_trader.config_utils as cu
+import sf_trader.trading_utils as tu
 from typing import Callable, Any
+import polars as pl
 
 console = Console()
 
@@ -51,7 +53,7 @@ def main(config: Path, dry_run: bool):
     """sf-trader: Interactive terminal trading application"""
     console.print("\n[bold cyan]sf-trader[/bold cyan] - Interactive Trading Application\n")
 
-    trade_date = dt.date(2025, 10, 16)
+    trade_date = dt.date(2025, 10, 17)
 
     # 1. Parse config
     cfg = execute_step(
@@ -66,6 +68,7 @@ def main(config: Path, dry_run: bool):
         "Loading trading universe",
         du.get_tickers,
         trade_date=trade_date,
+        config=cfg,
         success_formatter=lambda result: f"Loading trading universe ([cyan]{len(result):,}[/cyan] tickers)"
     )
 
@@ -146,8 +149,14 @@ def main(config: Path, dry_run: bool):
         available_funds
     )
 
-    # 11. Execute trades
-    console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+    # if not dry_run:
+    #     # 11. Execute trades
+    #     console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+    #     result = execute_step(
+    #         "Executing trades",
+    #         tu.submit_limit_orders,
+    #         trades=trades,
+    #     )
     
 if __name__ == '__main__':
     main()
