@@ -7,88 +7,85 @@ import numpy as np
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+import dataframely as dy
+from sf_trader.models import Prices, AssetData, Alphas, Weights, Betas, Shares
 
-def get_tradable_tickers(df: pl.DataFrame) -> list[str]:
+
+def get_tradable_tickers(df: dy.DataFrame[Prices]) -> list[str]:
     return (
-        df
-        .filter(
-            pl.col('price').ge(5),
-        )
-        ['ticker']
+        df.filter(
+            pl.col("price").ge(5),
+        )["ticker"]
         .unique()
         .sort()
         .to_list()
     )
 
-def get_alphas(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
+
+def get_alphas(
+    asset_data: dy.DataFrame[AssetData], config: Config, trade_date: dt.date
+) -> dy.DataFrame[Alphas]:
     signals = config.signals
     signal_combinator = config.signal_combinator
     ic = config.ic
 
-    return (
-        df
-        .sort('barrid', 'date')
+    alphas = (
+        asset_data.sort("barrid", "date")
         # Compute signals
         .with_columns([signal.expr for signal in signals])
         # Compute scores
-        .with_columns([
-            pl.col(signal.name).sub(pl.col(signal.name).mean()).truediv(pl.col(signal.name).std())
-            for signal in signals
-        ])
+        .with_columns(
+            [
+                pl.col(signal.name)
+                .sub(pl.col(signal.name).mean())
+                .truediv(pl.col(signal.name).std())
+                for signal in signals
+            ]
+        )
         # Compute alphas
-        .with_columns([
-            pl.col(signal.name).mul(pl.lit(ic)).mul(pl.col('specific_risk'))
-            for signal in signals
-        ])
+        .with_columns(
+            [
+                pl.col(signal.name).mul(pl.lit(ic)).mul(pl.col("specific_risk"))
+                for signal in signals
+            ]
+        )
         # Fill null alphas with 0
-        .with_columns(
-            pl.col(signal.name).fill_null(0)
-            for signal in signals    
-        )
+        .with_columns(pl.col(signal.name).fill_null(0) for signal in signals)
         # Combine alphas
-        .with_columns(
-            signal_combinator.combine_fn([signal.name for signal in signals])
-        )
+        .with_columns(signal_combinator.combine_fn([signal.name for signal in signals]))
         # Get trade date
-        .filter(
-            pl.col('date')
-            .eq(trade_date)
-        )
-        .select(
-            'date',
-            'barrid',
-            'ticker',
-            'predicted_beta',
-            'alpha'
-        )
-        .sort('barrid', 'date')
+        .filter(pl.col("date").eq(trade_date))
+        .select("barrid", "alpha")
+        .sort("barrid")
     )
 
-def get_ticker_barrid_mapping(trade_date: dt.date) -> list[str]:
-    return (
-        sfd.load_assets_by_date(
-            date_=trade_date,
-            columns=['ticker', 'barrid'],
-            in_universe=True
-        )
+    return Alphas.validate(alphas)
+
+
+def get_ticker_barrid_mapping(trade_date: dt.date) -> pl.DataFrame:
+    mapping = sfd.load_assets_by_date(
+        date_=trade_date, columns=["ticker", "barrid"], in_universe=True
     )
 
-def get_optimal_weights(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
-    df = df.sort('barrid')
+    return mapping
+
+
+def _compute_optimal_weights(
+    barrids: list[str],
+    alphas: dy.DataFrame[Alphas],
+    betas: dy.DataFrame[Betas],
+    config: Config,
+    trade_date: dt.date,
+) -> pl.DataFrame:
+    barrids = sorted(barrids)
+    alphas = alphas.sort("barrid")["alpha"].to_numpy()
+    betas = betas.sort("barrid")["predicted_beta"].to_numpy()
 
     gamma = config.gamma
-    decimal_places = config.decimal_places
-
-    barrids = df['barrid'].to_list()
-    alphas = df['alpha'].to_list()
-    betas = df['predicted_beta'].to_list()
 
     covariance_matrix = (
-        sfd.construct_covariance_matrix(
-            date_=trade_date,
-            barrids=barrids
-        )
-        .drop('barrid')
+        sfd.construct_covariance_matrix(date_=trade_date, barrids=barrids)
+        .drop("barrid")
         .to_numpy()
     )
 
@@ -96,90 +93,110 @@ def get_optimal_weights(df: pl.DataFrame, config: Config, trade_date: dt.date) -
         sfo.FullInvestment(),
         sfo.NoBuyingOnMargin(),
         sfo.LongOnly(),
-        sfo.UnitBeta()
+        sfo.UnitBeta(),
     ]
 
-    weights = sfo.mve_optimizer(
+    return sfo.mve_optimizer(
         ids=barrids,
         alphas=alphas,
         betas=betas,
         covariance_matrix=covariance_matrix,
         gamma=gamma,
-        constraints=constraints
+        constraints=constraints,
     )
 
-    return (
-        weights
-        .with_columns(pl.col("weight").round(4))
+
+def get_optimal_weights(
+    tickers: list[str],
+    alphas: dy.DataFrame[Alphas],
+    betas: dy.DataFrame[Betas],
+    config: Config,
+    trade_date: dt.date,
+) -> dy.DataFrame[Weights]:
+    decimal_places = config.decimal_places
+
+    mapping = get_ticker_barrid_mapping(trade_date)
+    barrids = (
+        mapping.join(other=pl.DataFrame({"ticker": tickers}), how="inner", on="ticker")[
+            "barrid"
+        ]
+        .unique()
+        .sort()
+        .to_list()
+    )
+
+    weights = _compute_optimal_weights(
+        barrids=barrids,
+        alphas=alphas,
+        betas=betas,
+        config=config,
+        trade_date=trade_date,
+    )
+
+    weights_re_keyed = weights.join(other=mapping, on="barrid", how="left").select(
+        "ticker", "weight"
+    )
+
+    weights_rounded = (
+        weights_re_keyed.with_columns(pl.col("weight").round(4))
         .filter(pl.col("weight").ge(1 * 10**-decimal_places))
-        .join(
-            other=df.select('barrid', 'ticker'),
-            on='barrid',
-            how='left'
-        )
-        .sort('barrid', 'weight')
+        .sort("ticker")
     )
 
-def get_optimal_shares(weights: pl.DataFrame, prices: pl.DataFrame, available_funds: float) -> pl.DataFrame:
-    return (
-        weights
-        .join(
-            prices,
-            on='ticker',
-            how='left'
-        )
+    return Weights.validate(weights_rounded)
+
+
+def get_optimal_shares(
+    weights: dy.DataFrame[Weights], prices: dy.DataFrame[Prices], available_funds: float
+) -> dy.DataFrame[Shares]:
+    optimal_shares = (
+        weights.join(prices, on="ticker", how="left")
+        .with_columns(pl.lit(available_funds).mul(pl.col("weight")).alias("dollars"))
         .with_columns(
-            pl.lit(available_funds).mul(pl.col('weight')).alias('dollars')
-        )
-        .with_columns(
-            pl.col('dollars').truediv(pl.col('price')).floor().alias('shares')
+            pl.col("dollars").truediv(pl.col("price")).floor().alias("shares")
         )
         .select(
-            'ticker',
-            'price',
-            'shares',
+            "ticker",
+            "shares",
         )
     )
+
+    return Shares.validate(optimal_shares)
+
 
 def compute_active_risk(
     active_weights: np.ndarray, covariance_matrix: np.ndarray
 ) -> float:
     return np.sqrt(active_weights @ covariance_matrix @ active_weights.T)
 
-def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date, available_funds: float):
-    """
-    Create and display a comprehensive portfolio summary from a list of trades.
 
-    Args:
-        trades: List of dicts with keys: ticker, price, shares
-        trade_date: Date for benchmark and covariance matrix
-        available_funds: Total available funds for the portfolio
-
-    Returns a dictionary with portfolio metrics for programmatic access if needed.
-    """
+def create_portfolio_summary_from_shares(
+    shares: dy.DataFrame[Shares],
+    prices: dy.DataFrame[Prices],
+    trade_date: dt.date,
+    available_funds: float,
+) -> None:
     console = Console()
 
     # Convert trades to DataFrame
-    trades_df = pl.DataFrame(trades).with_columns(
+    dollars = shares.join(other=prices, on="ticker", how="left").with_columns(
         (pl.col("price") * pl.col("shares")).alias("dollars")
     )
 
     # Get tickers and barrids
     ticker_to_barrid = get_ticker_barrid_mapping(trade_date=trade_date)
 
-    trades_df = trades_df.join(
-        pl.DataFrame(ticker_to_barrid),
-        on="ticker",
-        how="left"
+    dollars_re_keyed = dollars.join(
+        pl.DataFrame(ticker_to_barrid), on="ticker", how="left"
     )
 
     # Calculate portfolio weights from dollar amounts
-    trades_df = trades_df.with_columns(
+    weights = dollars_re_keyed.with_columns(
         (pl.col("dollars") / pl.lit(available_funds)).alias("weight")
     ).sort("barrid")
 
     # Get benchmark weights
-    benchmark = sfd.load_benchmark(start=trade_date, end=trade_date).sort('barrid')
+    benchmark = sfd.load_benchmark(start=trade_date, end=trade_date).sort("barrid")
 
     barrids = benchmark["barrid"].to_list()
 
@@ -190,38 +207,37 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         .to_numpy()
     )
 
-    trades_merge = (
-        benchmark
-        .select('barrid', pl.col('weight').alias('weight_bmk'))
+    merge = (
+        benchmark.select("barrid", pl.col("weight").alias("weight_bmk"))
         .join(
-            trades_df,
+            weights,
             on="barrid",
             how="left",
         )
         .with_columns(
             pl.col("weight").fill_null(0),
         )
-        .with_columns(
-            pl.col("weight").sub(pl.col("weight_bmk")).alias("weight_act")
-        )
+        .with_columns(pl.col("weight").sub(pl.col("weight_bmk")).alias("weight_act"))
         .with_columns(
             (pl.col("weight").truediv(pl.col("weight_bmk")).sub(1)).alias("pct_chg_bmk")
         )
         .sort("barrid")
     )
 
-    total_weights = trades_merge["weight"].to_numpy()
-    active_weights = trades_merge["weight_act"].to_numpy()
+    total_weights = merge["weight"].to_numpy()
+    active_weights = merge["weight_act"].to_numpy()
 
     # Calculate metrics
-    total_dollars_allocated = trades_df["dollars"].sum()
+    total_dollars_allocated = merge["dollars"].sum()
     gross_exposure = np.sum(np.abs(total_weights))
     net_exposure = np.sum(total_weights)
     num_long = int(np.sum(total_weights > 0))
     num_short = int(np.sum(total_weights < 0))
     num_positions = num_long + num_short
     active_risk = compute_active_risk(active_weights, covariance_matrix)
-    utilization = total_dollars_allocated / available_funds if available_funds > 0 else 0
+    utilization = (
+        total_dollars_allocated / available_funds if available_funds > 0 else 0
+    )
 
     # Create metrics table
     metrics_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -239,12 +255,22 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
     metrics_table.add_row("Utilization", f"{utilization:.2%}")
 
     console.print()
-    console.print(Panel(metrics_table, title="[bold cyan]Portfolio Metrics[/bold cyan]", border_style="cyan"))
+    console.print(
+        Panel(
+            metrics_table,
+            title="[bold cyan]Portfolio Metrics[/bold cyan]",
+            border_style="cyan",
+        )
+    )
 
     # Top 10 Long Positions
-    long_positions = trades_merge.filter(pl.col("shares") > 0).sort("dollars", descending=True).head(10)
+    long_positions = (
+        merge.filter(pl.col("shares") > 0).sort("dollars", descending=True).head(10)
+    )
     if len(long_positions) > 0:
-        long_table = Table(title="Top 10 Long Positions", show_header=True, header_style="bold green")
+        long_table = Table(
+            title="Top 10 Long Positions", show_header=True, header_style="bold green"
+        )
         long_table.add_column("Ticker", style="white")
         long_table.add_column("Shares", justify="right", style="white")
         long_table.add_column("Price", justify="right", style="white")
@@ -255,7 +281,7 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
 
         for row in long_positions.iter_rows(named=True):
             ticker = row.get("ticker", "N/A")
-            shares = row["shares"]
+            shares_ = row["shares"]
             price = row["price"]
             dollars = row["dollars"]
             weight = row["weight"]
@@ -263,21 +289,23 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
             pct_chg_bmk = row["pct_chg_bmk"]
             long_table.add_row(
                 ticker,
-                f"{shares:,.0f}",
+                f"{shares_:,.0f}",
                 f"${price:.2f}",
                 f"${dollars:,.0f}",
                 f"{weight:.2%}",
                 f"{active:+.2%}",
-                f"{pct_chg_bmk:+.2%}"
+                f"{pct_chg_bmk:+.2%}",
             )
 
         console.print()
         console.print(long_table)
 
     # Top 10 Short Positions
-    short_positions = trades_merge.filter(pl.col("shares") < 0).sort("dollars").head(10)
+    short_positions = merge.filter(pl.col("shares") < 0).sort("dollars").head(10)
     if len(short_positions) > 0:
-        short_table = Table(title="Top 10 Short Positions", show_header=True, header_style="bold red")
+        short_table = Table(
+            title="Top 10 Short Positions", show_header=True, header_style="bold red"
+        )
         short_table.add_column("Ticker", style="white")
         short_table.add_column("Shares", justify="right", style="white")
         short_table.add_column("Price", justify="right", style="white")
@@ -288,7 +316,7 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
 
         for row in short_positions.iter_rows(named=True):
             ticker = row.get("ticker", "N/A")
-            shares = row["shares"]
+            shares_ = row["shares"]
             price = row["price"]
             dollars = row["dollars"]
             weight = row["weight"]
@@ -296,12 +324,12 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
             pct_chg_bmk = row["pct_chg_bmk"]
             short_table.add_row(
                 ticker,
-                f"{shares:,.0f}",
+                f"{shares_:,.0f}",
                 f"${price:.2f}",
                 f"${dollars:,.0f}",
                 f"{weight:.2%}",
                 f"{active:+.2%}",
-                f"{pct_chg_bmk:+.2%}"
+                f"{pct_chg_bmk:+.2%}",
             )
 
         console.print()
@@ -320,5 +348,5 @@ def create_portfolio_summary_with_trades(trades: list[dict], trade_date: dt.date
         "total_dollars_allocated": total_dollars_allocated,
         "available_funds": available_funds,
         "utilization": utilization,
-        "trades_df": trades_merge
+        "trades_df": merge,
     }

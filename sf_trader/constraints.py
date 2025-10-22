@@ -1,5 +1,6 @@
 import sf_quant.optimizer as sfo
 
+
 def get_constraint(name: str) -> sfo.constraints.Constraint:
     """
     Get a constraint by name
@@ -16,13 +17,15 @@ def get_constraint(name: str) -> sfo.constraints.Constraint:
     """
     # Map constraint names to constraint constructors/instances
     CONSTRAINTS = {
-        'full-investment': sfo.FullInvestment,
-        'long-only': sfo.LongOnly,
-        'no-buying-on-margin': sfo.NoBuyingOnMargin,
-        'unit-beta': sfo.UnitBeta,
+        "full-investment": sfo.FullInvestment,
+        "long-only": sfo.LongOnly,
+        "no-buying-on-margin": sfo.NoBuyingOnMargin,
+        "unit-beta": sfo.UnitBeta,
     }
 
     if name not in CONSTRAINTS:
-        raise ValueError(f"Unknown constraint: {name}. Available: {list(CONSTRAINTS.keys())}")
+        raise ValueError(
+            f"Unknown constraint: {name}. Available: {list(CONSTRAINTS.keys())}"
+        )
 
     return CONSTRAINTS[name]()

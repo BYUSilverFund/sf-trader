@@ -1,48 +1,49 @@
 from ib_insync import IB, LimitOrder, Stock
 import polars as pl
 from sf_trader.models import Config
+import dataframely as dy
+from models import Shares, Prices
 
-def get_trades(current_shares: pl.DataFrame, optimal_shares: pl.DataFrame, config: Config) -> pl.DataFrame:
-    tickers = list(set(current_shares['ticker'].to_list() + optimal_shares['ticker'].to_list()))
 
-    current_shares = current_shares.rename({'shares': 'current_shares'})
-    optimal_shares = optimal_shares.rename({'shares': 'optimal_shares'})
+def get_trades(
+    current_shares: dy.DataFrame[Shares],
+    optimal_shares: dy.DataFrame[Shares],
+    prices: dy.DataFrame[Prices],
+    config: Config,
+) -> pl.DataFrame:
+    tickers = list(
+        set(current_shares["ticker"].to_list() + optimal_shares["ticker"].to_list())
+    )
+
+    current_shares = current_shares.rename({"shares": "current_shares"})
+    optimal_shares = optimal_shares.rename({"shares": "optimal_shares"})
 
     return (
-        pl.DataFrame({'ticker': tickers})
-        .join(current_shares, on='ticker', how='left')
-        .join(optimal_shares, on='ticker', how='left')
+        pl.DataFrame({"ticker": tickers})
+        .join(current_shares, on="ticker", how="left")
+        .join(optimal_shares, on="ticker", how="left")
+        .join(prices, on="ticker", how="left")
+        .with_columns(pl.col("current_shares", "optimal_shares").fill_null(0))
+        .with_columns(pl.col("optimal_shares").sub("current_shares").alias("shares"))
         .with_columns(
-            pl.col('current_shares', 'optimal_shares').fill_null(0)
-        )
-        .with_columns(
-            pl.col('optimal_shares').sub('current_shares').alias('shares')
-        )
-        .with_columns(
-            pl.when(pl.col('shares').gt(0))
-            .then(pl.lit('BUY'))
-            .when(pl.col('shares').lt(0))
+            pl.when(pl.col("shares").gt(0))
+            .then(pl.lit("BUY"))
+            .when(pl.col("shares").lt(0))
             .then(pl.lit("SELL"))
             .otherwise(pl.lit("HOLD"))
-            .alias('action')
+            .alias("action")
         )
-        .with_columns(
-            pl.col('shares').abs()
-        )
-        .select(
-            'ticker',
-            'price',
-            'shares',
-            'action'
-        )
+        .with_columns(pl.col("shares").abs())
+        .select("ticker", "price", "shares", "action")
         .filter(
-            pl.col('ticker').is_in(config.ignore_tickers).not_(),
-            pl.col('shares').ne(0),
-            pl.col('action').ne('HOLD'),
-            pl.col('price').is_not_null()
+            pl.col("ticker").is_in(config.ignore_tickers).not_(),
+            pl.col("shares").ne(0),
+            pl.col("action").ne("HOLD"),
+            pl.col("price").is_not_null(),
         )
-        .sort('ticker')
+        .sort("ticker")
     )
+
 
 def submit_limit_orders(
     trades: pl.DataFrame,
@@ -63,7 +64,7 @@ def submit_limit_orders(
             action = trade["action"]
 
             # Calculate limit price (add adjustments here)
-            limit_price = round(price + .01, 2)
+            limit_price = round(price + 0.01, 2)
 
             # Create contract
             contract = Stock(ticker, "SMART", "USD")
@@ -99,7 +100,6 @@ def submit_limit_orders(
                 f"✓ {ticker}: Order {trade.order.orderId} - {action} {quantity} @ ${limit_price}"
             )
 
-
         except Exception as e:
             results.append(
                 {
@@ -120,6 +120,7 @@ def submit_limit_orders(
     ib.disconnect()
 
     return pl.DataFrame(results)
+
 
 def clear_ibkr_orders() -> pl.DataFrame:
     """Cancel all open orders in IBKR account
@@ -143,12 +144,7 @@ def clear_ibkr_orders() -> pl.DataFrame:
     if not open_trades:
         print("No open orders to cancel")
         ib.disconnect()
-        return pl.DataFrame({
-            'orderId': [],
-            'ticker': [],
-            'status': [],
-            'error': []
-        })
+        return pl.DataFrame({"orderId": [], "ticker": [], "status": [], "error": []})
 
     print(f"Found {len(open_trades)} open order(s) to cancel")
 
@@ -163,22 +159,26 @@ def clear_ibkr_orders() -> pl.DataFrame:
             # Wait for cancellation acknowledgment
             ib.sleep(0.5)
 
-            results.append({
-                'orderId': order_id,
-                'ticker': ticker,
-                'status': 'CANCELLED',
-                'error': None
-            })
+            results.append(
+                {
+                    "orderId": order_id,
+                    "ticker": ticker,
+                    "status": "CANCELLED",
+                    "error": None,
+                }
+            )
 
             print(f"✓ Cancelled order {order_id} for {ticker}")
 
         except Exception as e:
-            results.append({
-                'orderId': order_id if 'order_id' in locals() else None,
-                'ticker': ticker if 'ticker' in locals() else 'UNKNOWN',
-                'status': 'ERROR',
-                'error': str(e)
-            })
+            results.append(
+                {
+                    "orderId": order_id if "order_id" in locals() else None,
+                    "ticker": ticker if "ticker" in locals() else "UNKNOWN",
+                    "status": "ERROR",
+                    "error": str(e),
+                }
+            )
             print(f"✗ Error cancelling order: {str(e)}")
 
     # Disconnect

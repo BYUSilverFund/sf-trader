@@ -7,16 +7,24 @@ import sf_trader.portfolio_utils as pu
 import sf_trader.config_utils as cu
 import sf_trader.trading_utils as tu
 from typing import Callable, Any
-import polars as pl
 
 console = Console()
+
 
 @click.group()
 def cli():
     """sf-trader: Interactive terminal trading application"""
     pass
 
-def execute_step(step_name: str, func: Callable, *args, success_formatter: Callable[[Any], str] | None = None, pass_status: bool = False, **kwargs) -> Any:
+
+def execute_step(
+    step_name: str,
+    func: Callable,
+    *args,
+    success_formatter: Callable[[Any], str] | None = None,
+    pass_status: bool = False,
+    **kwargs,
+) -> Any:
     """Execute a step with a spinner and show success/failure status.
 
     Args:
@@ -29,7 +37,7 @@ def execute_step(step_name: str, func: Callable, *args, success_formatter: Calla
     with console.status(f"[bold blue]{step_name}...", spinner="dots") as status:
         try:
             if pass_status:
-                kwargs['status'] = status
+                kwargs["status"] = status
             result = func(*args, **kwargs)
             if success_formatter:
                 success_msg = success_formatter(result)
@@ -42,36 +50,31 @@ def execute_step(step_name: str, func: Callable, *args, success_formatter: Calla
             console.print(f"[red]  Error: {str(e)}[/red]")
             raise
 
+
 @cli.command()
 @click.option(
-    '--config',
+    "--config",
     type=click.Path(exists=True, path_type=Path),
-    default='config.yml',
-    help='Path to configuration file'
+    default="config.yml",
+    help="Path to configuration file",
 )
+@click.option("--dry-run", is_flag=True, help="Simulate trades without executing")
 @click.option(
-    '--dry-run',
-    is_flag=True,
-    help='Simulate trades without executing'
-)
-@click.option(
-    '--prices',
-    type=click.Choice(['ibkr', 'barra'], case_sensitive=False),
-    default='ibkr',
-    help='Price source to use (default: ibkr)'
+    "--prices",
+    type=click.Choice(["ibkr", "barra"], case_sensitive=False),
+    default="ibkr",
+    help="Price source to use (default: ibkr)",
 )
 def run(config: Path, dry_run: bool, prices: str):
     """Run the full trading pipeline"""
-    console.print("\n[bold cyan]sf-trader[/bold cyan] - Interactive Trading Application\n")
+    console.print(
+        "\n[bold cyan]sf-trader[/bold cyan] - Interactive Trading Application\n"
+    )
 
     trade_date = dt.date(2025, 10, 17)
 
     # 1. Parse config
-    cfg = execute_step(
-        "Parsing configuration",
-        cu.load_config,
-        config
-    )
+    cfg = execute_step("Parsing configuration", cu.load_config, config)
     cu.print_config(cfg, console=console)
 
     # 2. Get universe
@@ -79,29 +82,29 @@ def run(config: Path, dry_run: bool, prices: str):
         "Loading trading universe",
         du.get_tickers,
         trade_date=trade_date,
-        success_formatter=lambda result: f"Loading trading universe ([cyan]{len(result):,}[/cyan] tickers)"
+        success_formatter=lambda result: f"Loading trading universe ([cyan]{len(result):,}[/cyan] tickers)",
     )
 
     # 3. Get account value
     available_funds = execute_step(
         "Fetching available funds",
         du.get_available_funds,
-        success_formatter=lambda result: f"Fetching available funds ([cyan]${result:,.0f}[/cyan])"
+        success_formatter=lambda result: f"Fetching available funds ([cyan]${result:,.0f}[/cyan])",
     )
 
     # 4. Get prices
-    if prices == 'barra':
+    if prices == "barra":
         prices = execute_step(
             "Loading historical prices from Barra",
             du.get_barra_prices,
-            trade_date=trade_date
+            trade_date=trade_date,
         )
     else:  # ibkr
         prices = execute_step(
             "Fetching prices from IBKR",
             du.get_ibkr_prices,
             tickers=tickers,
-            pass_status=True
+            pass_status=True,
         )
 
     # 5. Get tradable universe
@@ -109,7 +112,7 @@ def run(config: Path, dry_run: bool, prices: str):
         "Filtering tradable tickers",
         pu.get_tradable_tickers,
         prices,
-        success_formatter=lambda result: f"Filtering tradable tickers ([cyan]{len(result):,}[/cyan] tradable tickers)"
+        success_formatter=lambda result: f"Filtering tradable tickers ([cyan]{len(result):,}[/cyan] tradable tickers)",
     )
 
     # 6. Get data
@@ -119,7 +122,7 @@ def run(config: Path, dry_run: bool, prices: str):
         du.get_asset_data,
         tickers=tradable_tickers,
         trade_date=trade_date,
-        lookback_days=lookback_days
+        lookback_days=lookback_days,
     )
 
     # 7. Get alphas
@@ -128,52 +131,61 @@ def run(config: Path, dry_run: bool, prices: str):
         pu.get_alphas,
         assets,
         config=cfg,
-        trade_date=trade_date
+        trade_date=trade_date,
     )
 
-    # 8. Get portfolio weights
+    # 8. Get betas
+    betas = execute_step(
+        "Getting predicted betas",
+        du.get_betas,
+        tickers=tradable_tickers,
+        trade_date=trade_date,
+    )
+
+    # 9. Get portfolio weights
     optimal_weights = execute_step(
         "Optimizing portfolio weights",
         pu.get_optimal_weights,
-        alphas,
+        tickers=tradable_tickers,
+        alphas=alphas,
+        betas=betas,
         config=cfg,
-        trade_date=trade_date
+        trade_date=trade_date,
     )
 
-    # 9. Get trades
+    # 10. Get trades
     optimal_shares = execute_step(
-        "Generating trade orders",
+        "Generating optimal shares",
         pu.get_optimal_shares,
-        optimal_weights,
-        prices,
-        available_funds=available_funds
+        weights=optimal_weights,
+        prices=prices,
+        available_funds=available_funds,
     )
 
-    # 10. Check portfolio metrics
+    # 11. Check portfolio metrics
     execute_step(
         "Computing portfolio metrics",
-        pu.create_portfolio_summary_with_trades,
-        optimal_shares,
-        trade_date,
-        available_funds
+        pu.create_portfolio_summary_from_shares,
+        shares=optimal_shares,
+        prices=prices,
+        trade_date=trade_date,
+        available_funds=available_funds,
     )
 
-    # 11. Get current positions
-    current_shares = execute_step(
-        "Fetching positions from IBKR",
-        du.get_ibkr_positions
-    )
+    # 12. Get current positions
+    current_shares = execute_step("Fetching positions from IBKR", du.get_ibkr_positions)
 
-    # 12. Get trades
+    # 13. Get trades
     trades = execute_step(
         "Computing trade list",
         tu.get_trades,
-        current_shares,
-        optimal_shares,
-        config=cfg
+        current_shares=current_shares,
+        optimal_shares=optimal_shares,
+        prices=prices,
+        config=cfg,
     )
 
-    # 13. Execute trades
+    # 14. Execute trades
     if not dry_run:
         console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
         execute_step(
@@ -191,7 +203,7 @@ def clear_orders():
     result = execute_step(
         "Cancelling all open orders",
         tu.clear_ibkr_orders,
-        success_formatter=lambda result: f"Cancelled {len(result)} order(s)"
+        success_formatter=lambda result: f"Cancelled {len(result)} order(s)",
     )
 
     if len(result) > 0:
@@ -200,5 +212,6 @@ def clear_orders():
 
     console.print("\n[bold green]Done![/bold green]\n")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     cli()
