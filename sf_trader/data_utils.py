@@ -70,6 +70,11 @@ def get_betas(tickers: str, trade_date: dt.date) -> dy.DataFrame[Betas]:
 
 
 def get_available_funds() -> float:
+    """Get net liquidation value from IBKR account.
+
+    This represents the total value that would be available if all positions
+    were liquidated (cash + stock value + options value, etc.)
+    """
     # Create an IB instance
     ib = IB()
 
@@ -80,18 +85,18 @@ def get_available_funds() -> float:
     # Get account values
     account_values = ib.accountValues()
 
-    available_funds = 0
+    net_liquidation = 0
 
     for value in account_values:
         match value.tag:
-            case "AvailableFunds":
-                available_funds = value.value
+            case "NetLiquidation":
+                net_liquidation = value.value
             case _:
                 pass
 
     ib.disconnect()
 
-    return float(available_funds)
+    return float(net_liquidation)
 
 
 def get_ibkr_prices(tickers: list[str], status=None) -> dy.DataFrame[Prices]:

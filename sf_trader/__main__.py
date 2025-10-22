@@ -96,11 +96,11 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         success_formatter=lambda result: f"Loading trading universe ([cyan]{len(result):,}[/cyan] tickers)",
     )
 
-    # 3. Get account value
+    # 3. Get net liquidation value (total account value)
     available_funds = execute_step(
-        "Fetching available funds",
+        "Fetching net liquidation value from IBKR",
         du.get_available_funds,
-        success_formatter=lambda result: f"Fetching available funds ([cyan]${result:,.0f}[/cyan])",
+        success_formatter=lambda result: f"Fetching net liquidation value from IBKR ([cyan]${result:,.0f}[/cyan])",
     )
 
     # 4. Get prices
@@ -233,6 +233,69 @@ def clear_orders():
         print(result)
 
     console.print("\n[bold green]Done![/bold green]\n")
+
+
+@cli.command()
+@click.option("--dry-run", is_flag=True, help="Show positions without executing sells")
+def sell_all(dry_run: bool):
+    """Sell all current positions in IBKR"""
+    console.print("\n[bold cyan]sf-trader[/bold cyan] - Sell All Positions\n")
+
+    # 1. Get current positions
+    current_shares = execute_step("Fetching positions from IBKR", du.get_ibkr_positions)
+
+    if len(current_shares) == 0:
+        console.print("[yellow]No positions found to sell[/yellow]\n")
+        return
+
+    # 2. Get current prices for these positions
+    tickers = current_shares["ticker"].to_list()
+    prices = execute_step(
+        "Fetching current prices from IBKR",
+        du.get_ibkr_prices,
+        tickers=tickers,
+        pass_status=True,
+    )
+
+    # 3. Create sell orders for all positions
+    import polars as pl
+
+    sell_orders = (
+        current_shares.join(prices, on="ticker", how="inner")
+        .with_columns(pl.lit("SELL").alias("action"))
+        .select("ticker", "price", "shares", "action")
+    )
+
+    # 4. Show summary
+    total_value = (sell_orders["price"] * sell_orders["shares"]).sum()
+    console.print(f"\n[bold]Positions to sell:[/bold] {len(sell_orders)}")
+    console.print(f"[bold]Total value:[/bold] [cyan]${total_value:,.2f}[/cyan]\n")
+
+    # Show the orders
+    console.print("[bold]Orders:[/bold]")
+    for order in sell_orders.to_dicts():
+        value = order["price"] * order["shares"]
+        console.print(
+            f"  • {order['ticker']}: SELL {order['shares']:.0f} @ ${order['price']:.2f} = [cyan]${value:,.2f}[/cyan]"
+        )
+
+    # 5. Execute if not dry run
+    if not dry_run:
+        console.print()
+        if click.confirm(
+            "[bold yellow]Are you sure you want to sell all positions?[/bold yellow]",
+            default=False,
+        ):
+            execute_step(
+                "Executing sell orders",
+                tu.submit_limit_orders,
+                trades=sell_orders,
+            )
+            console.print("\n[bold green]All positions sold![/bold green]\n")
+        else:
+            console.print("\n[yellow]Sell orders cancelled by user[/yellow]\n")
+    else:
+        console.print("\n[yellow]Dry run - no orders executed[/yellow]\n")
 
 
 if __name__ == "__main__":
