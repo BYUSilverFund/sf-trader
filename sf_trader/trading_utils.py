@@ -3,6 +3,8 @@ import polars as pl
 from sf_trader.models import Config
 import dataframely as dy
 from sf_trader.models import Shares, Prices, Orders
+from rich.console import Console
+from rich.table import Table
 
 
 def compute_orders(
@@ -45,6 +47,87 @@ def compute_orders(
     )
 
     return Orders.validate(orders)
+
+
+def get_top_long_positions(
+    trades: dy.DataFrame[Orders],
+    current_shares: dy.DataFrame[Shares],
+    optimal_shares: dy.DataFrame[Shares],
+    top_n: int = 10,
+) -> pl.DataFrame:
+    """
+    Get the top N long positions (BUY orders) by dollar value.
+
+    Args:
+        trades: DataFrame containing trade orders
+        current_shares: DataFrame with current position sizes
+        optimal_shares: DataFrame with optimal position sizes
+        top_n: Number of top positions to return (default: 10)
+
+    Returns:
+        DataFrame with top long positions including current_shares, optimal_shares,
+        shares to trade, action, price, and dollar_value columns
+    """
+    # Prepare current and optimal shares with renamed columns
+    current_shares_renamed = current_shares.rename({"shares": "current_shares"})
+    optimal_shares_renamed = optimal_shares.rename({"shares": "optimal_shares"})
+
+    # Filter for BUY orders, join with current/optimal shares, and calculate dollar value
+    long_positions = (
+        trades.filter(pl.col("action") == "BUY")
+        .join(current_shares_renamed, on="ticker", how="left")
+        .join(optimal_shares_renamed, on="ticker", how="left")
+        .with_columns(pl.col("current_shares", "optimal_shares").fill_null(0))
+        .with_columns(
+            (pl.col("price") * pl.col("shares")).alias("dollar_value")
+        )
+        .sort("dollar_value", descending=True)
+        .head(top_n)
+    )
+
+    return long_positions
+
+
+def print_top_long_positions(
+    long_positions: pl.DataFrame,
+    console: Console,
+) -> None:
+    """
+    Print the top long positions table.
+
+    Args:
+        long_positions: DataFrame with top long positions data
+        console: Rich console for formatted output
+    """
+    if long_positions.height == 0:
+        console.print("\n[yellow]No long positions (BUY orders) found[/yellow]\n")
+        return
+
+    # Create a rich table
+    table = Table(title=f"Top {long_positions.height} Long Positions", show_header=True, header_style="bold cyan")
+    table.add_column("Ticker", style="cyan")
+    table.add_column("Current Shares", justify="right", style="white")
+    table.add_column("Optimal Shares", justify="right", style="white")
+    table.add_column("Shares to Trade", justify="right", style="yellow")
+    table.add_column("Action", justify="center", style="bold green")
+    table.add_column("Price", justify="right", style="white")
+    table.add_column("Dollar Value", justify="right", style="bold green")
+
+    # Add rows to the table
+    for row in long_positions.to_dicts():
+        table.add_row(
+            row["ticker"],
+            f"{row['current_shares']:,.0f}",
+            f"{row['optimal_shares']:,.0f}",
+            f"{row['shares']:,.0f}",
+            row["action"],
+            f"${row['price']:.2f}",
+            f"${row['dollar_value']:,.2f}",
+        )
+
+    console.print()
+    console.print(table)
+    console.print()
 
 
 def submit_limit_orders(
