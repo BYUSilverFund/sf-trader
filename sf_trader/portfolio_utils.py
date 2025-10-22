@@ -82,19 +82,13 @@ def _compute_optimal_weights(
     betas = betas.sort("barrid")["predicted_beta"].to_numpy()
 
     gamma = config.gamma
+    constraints = config.constraints
 
     covariance_matrix = (
         sfd.construct_covariance_matrix(date_=trade_date, barrids=barrids)
         .drop("barrid")
         .to_numpy()
     )
-
-    constraints = [
-        sfo.FullInvestment(),
-        sfo.NoBuyingOnMargin(),
-        sfo.LongOnly(),
-        sfo.UnitBeta(),
-    ]
 
     return sfo.mve_optimizer(
         ids=barrids,
