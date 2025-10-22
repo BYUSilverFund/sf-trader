@@ -142,6 +142,79 @@ def print_top_long_positions(
     console.print()
 
 
+def get_top_trades(
+    trades: dy.DataFrame[Orders],
+    prices: dy.DataFrame[Prices],
+    top_n: int = 10,
+) -> pl.DataFrame:
+    """
+    Get the top N trades by dollar value (shares * price).
+
+    Args:
+        trades: DataFrame containing trade orders
+        prices: DataFrame with current prices
+        top_n: Number of top trades to return (default: 10)
+
+    Returns:
+        DataFrame with top trades including ticker, action, shares, price,
+        and dollar_value columns sorted by dollar value descending.
+    """
+    # Join trades with prices and calculate dollar value
+    top_trades = (
+        trades
+        .join(prices, on="ticker", how="left", suffix="_price")
+        .with_columns(
+            (pl.col("shares") * pl.col("price")).alias("dollar_value")
+        )
+        .select("ticker", "action", "shares", "price", "dollar_value")
+        .sort("dollar_value", descending=True)
+        .head(top_n)
+    )
+
+    return top_trades
+
+
+def print_top_trades(
+    top_trades: pl.DataFrame,
+    console: Console,
+) -> None:
+    """
+    Print the top trades table.
+
+    Args:
+        top_trades: DataFrame with top trades data
+        console: Rich console for formatted output
+    """
+    if top_trades.height == 0:
+        console.print("\n[yellow]No trades found[/yellow]\n")
+        return
+
+    # Create a rich table
+    table = Table(title=f"Top {top_trades.height} Trades by Dollar Value", show_header=True, header_style="bold cyan")
+    table.add_column("Ticker", style="cyan")
+    table.add_column("Action", justify="center", style="bold yellow")
+    table.add_column("Shares", justify="right", style="white")
+    table.add_column("Price", justify="right", style="white")
+    table.add_column("Dollar Value", justify="right", style="bold green")
+
+    # Add rows to the table
+    for row in top_trades.to_dicts():
+        # Color code the action
+        action_style = "bold green" if row["action"] == "BUY" else "bold red"
+
+        table.add_row(
+            row["ticker"],
+            f"[{action_style}]{row['action']}[/{action_style}]",
+            f"{row['shares']:,.0f}",
+            f"${row['price']:.2f}",
+            f"${row['dollar_value']:,.2f}",
+        )
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
 def submit_limit_orders(
     trades: pl.DataFrame,
 ) -> pl.DataFrame:

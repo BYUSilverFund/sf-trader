@@ -209,7 +209,16 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
     )
     tu.print_top_long_positions(top_long_positions, console=console)
 
-    # 15. Execute trades
+    # 15. Get top trades by dollar value
+    top_trades = execute_step(
+        "Computing top trades by dollar value",
+        tu.get_top_trades,
+        trades=trades,
+        prices=prices,
+    )
+    tu.print_top_trades(top_trades, console=console)
+
+    # 16. Execute trades
     if not dry_run:
         console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
         execute_step(
