@@ -13,11 +13,7 @@ sf-trader is a command-line trading system that:
 ## Installation
 
 ```bash
-# Install the package and dependencies
-pip install -e .
-
-# Install development dependencies
-pip install -e .[dev]
+uv sync
 ```
 
 ## Requirements
@@ -212,7 +208,107 @@ The `run` command executes these steps:
 11. **Compute portfolio metrics** - Risk, return, and exposure analysis
 12. **Fetch current positions** - Get existing portfolio from IBKR
 13. **Compute trade list** - Calculate required trades (buy/sell)
-14. **Execute trades** - Submit limit orders to IBKR (if not dry run)
+14. **Display top long positions** - Show top 10 BUY orders by dollar value with current/optimal position details
+15. **Execute trades** - Submit limit orders to IBKR (if not dry run)
+
+## Extending the System
+
+### Creating Custom Signals
+
+Signals are alpha factors that predict future returns. To create a new signal, edit [sf_trader/signals.py](sf_trader/signals.py).
+
+**Structure:**
+
+A signal is defined using the `Signal` dataclass with three components:
+- `name`: Identifier for the signal (string)
+- `expr`: Polars expression that computes the signal
+- `lookback_days`: Number of days of historical data required (integer)
+
+**Example - Creating a Volume Signal:**
+
+```python
+from dataclasses import dataclass
+import polars as pl
+
+@dataclass
+class Signal:
+    name: str
+    expr: pl.Expr
+    lookback_days: int
+
+# Define your custom signal
+volume_signal = Signal(
+    name="volume",
+    expr=(
+        pl.col("volume")
+        .rolling_mean(window_size=20)
+        .over("barrid")
+        .alias("volume")
+    ),
+    lookback_days=20,
+)
+
+# Add to the registry
+SIGNALS = {
+    "momentum": momentum,
+    "reversal": reversal,
+    "beta": beta,
+    "volume": volume_signal,  # Add your signal here
+}
+```
+
+**Tips:**
+- Use `.over("barrid")` to apply operations per asset
+- Use `.alias()` to name the output column
+- Set `lookback_days` to the minimum data needed
+- Signals should be standardized/normalized for best results
+
+### Creating Signal Combinators
+
+Signal combinators merge multiple signals into a single alpha. To create a new combinator, edit [sf_trader/combinators.py](sf_trader/combinators.py).
+
+**Structure:**
+
+A combinator is created using a factory function that returns a `SignalCombinator` instance with:
+- `name`: Identifier for the combinator (string)
+- `combine_fn`: Function that takes signal names and returns a Polars expression
+
+**Example - Creating a Max Combinator:**
+
+```python
+import polars as pl
+from sf_trader.models import SignalCombinator
+
+def max_combinator() -> SignalCombinator:
+    """Take the maximum value across all signals"""
+    def combine_fn(signal_names: list[str]) -> pl.Expr:
+        # Create max expression across all signals
+        expr = pl.max_horizontal([pl.col(name) for name in signal_names])
+        return expr.alias("alpha")
+
+    return SignalCombinator(
+        name="max",
+        combine_fn=combine_fn,
+    )
+
+# Add to the registry
+COMBINATORS = {
+    "mean": mean_combinator,
+    "max": max_combinator,  # Add your combinator here
+}
+```
+
+**Usage in config.yml:**
+
+```yaml
+signal-combinator: max
+```
+
+**Tips:**
+- The `combine_fn` receives a list of signal column names
+- Always alias the final expression as "alpha"
+- Use Polars expressions for efficient computation
+- Consider normalization/standardization of signals before combining
 
 ## Tips
 
