@@ -2,7 +2,7 @@ from ib_insync import IB, LimitOrder, Stock
 import polars as pl
 from sf_trader.models import Config
 import dataframely as dy
-from models import Shares, Prices, Orders
+from sf_trader.models import Shares, Prices, Orders
 
 
 def compute_orders(
