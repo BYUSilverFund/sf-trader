@@ -65,13 +65,22 @@ def execute_step(
     default="ibkr",
     help="Price source to use (default: ibkr)",
 )
-def run(config: Path, dry_run: bool, prices: str):
+@click.option(
+    "--trade-date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    default=None,
+    help="Trade date in YYYY-MM-DD format (default: today)",
+)
+def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None):
     """Run the full trading pipeline"""
     console.print(
         "\n[bold cyan]sf-trader[/bold cyan] - Interactive Trading Application\n"
     )
 
-    trade_date = dt.date(2025, 10, 17)
+    if trade_date is None:
+        trade_date = dt.date.today()
+    else:
+        trade_date = trade_date.date()
 
     # 1. Parse config
     cfg = execute_step("Parsing configuration", cu.load_config, config)
