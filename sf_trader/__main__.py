@@ -80,7 +80,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
     )
 
     if trade_date is None:
-        trade_date = dt.date.today()
+        trade_date = dt.date.today() - dt.timedelta(days=1)
     else:
         trade_date = trade_date.date()
 

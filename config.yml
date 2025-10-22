@@ -9,7 +9,7 @@ constraints:
 - long-only
 - no-buying-on-margin
 - unit-beta
-gamma: 450
+gamma: 500
 decimal-places: 4
 ignore-tickers:
 - MONDQ

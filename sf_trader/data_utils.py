@@ -151,8 +151,10 @@ def get_ibkr_prices(tickers: list[str], status=None) -> dy.DataFrame[Prices]:
 
     ib.disconnect()
 
-    prices = pl.DataFrame(data).select(
-        "ticker", pl.mean_horizontal("bid", "ask").alias("price")
+    prices = (
+        pl.DataFrame(data)
+        .select("ticker", pl.mean_horizontal("bid", "ask").alias("price"))
+        .filter(pl.col("price").is_not_nan() & pl.col("price").is_finite())
     )
 
     return Prices.validate(prices)
