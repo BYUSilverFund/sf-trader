@@ -2,15 +2,15 @@ from ib_insync import IB, LimitOrder, Stock
 import polars as pl
 from sf_trader.models import Config
 import dataframely as dy
-from models import Shares, Prices
+from models import Shares, Prices, Orders
 
 
-def get_trades(
+def compute_orders(
     current_shares: dy.DataFrame[Shares],
     optimal_shares: dy.DataFrame[Shares],
     prices: dy.DataFrame[Prices],
     config: Config,
-) -> pl.DataFrame:
+) -> dy.DataFrame[Orders]:
     tickers = list(
         set(current_shares["ticker"].to_list() + optimal_shares["ticker"].to_list())
     )
@@ -18,7 +18,7 @@ def get_trades(
     current_shares = current_shares.rename({"shares": "current_shares"})
     optimal_shares = optimal_shares.rename({"shares": "optimal_shares"})
 
-    return (
+    orders = (
         pl.DataFrame({"ticker": tickers})
         .join(current_shares, on="ticker", how="left")
         .join(optimal_shares, on="ticker", how="left")
@@ -43,6 +43,8 @@ def get_trades(
         )
         .sort("ticker")
     )
+
+    return Orders.validate(orders)
 
 
 def submit_limit_orders(

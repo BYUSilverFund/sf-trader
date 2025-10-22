@@ -83,3 +83,10 @@ class Alphas(dy.Schema):
 class Betas(dy.Schema):
     barrid = dy.String(nullable=False)
     predicted_beta = dy.Float64(nullable=False)
+
+
+class Orders(dy.Schema):
+    ticker = dy.String(nullable=False)
+    price = dy.Float64(nullable=False)
+    shares = dy.Float64(nullable=False)
+    action = dy.String(nullable=False)

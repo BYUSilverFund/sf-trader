@@ -124,7 +124,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         success_formatter=lambda result: f"Filtering tradable tickers ([cyan]{len(result):,}[/cyan] tradable tickers)",
     )
 
-    # 6. Get data
+    # 6. Get asset data
     lookback_days = max([signal.lookback_days for signal in cfg.signals])
     assets = execute_step(
         f"Loading asset data ({lookback_days} days lookback)",
@@ -151,7 +151,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         trade_date=trade_date,
     )
 
-    # 9. Get portfolio weights
+    # 9. Get optimal weights
     optimal_weights = execute_step(
         "Optimizing portfolio weights",
         pu.get_optimal_weights,
@@ -162,7 +162,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         trade_date=trade_date,
     )
 
-    # 10. Get trades
+    # 10. Get optimal shares
     optimal_shares = execute_step(
         "Generating optimal shares",
         pu.get_optimal_shares,
@@ -181,13 +181,13 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         available_funds=available_funds,
     )
 
-    # 12. Get current positions
+    # 12. Get current positions (shares)
     current_shares = execute_step("Fetching positions from IBKR", du.get_ibkr_positions)
 
-    # 13. Get trades
+    # 13. Compute trades
     trades = execute_step(
         "Computing trade list",
-        tu.get_trades,
+        tu.compute_orders,
         current_shares=current_shares,
         optimal_shares=optimal_shares,
         prices=prices,
