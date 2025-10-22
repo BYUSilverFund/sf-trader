@@ -51,12 +51,13 @@ def compute_orders(
 
 def get_top_long_positions(
     trades: dy.DataFrame[Orders],
+    prices: dy.DataFrame[Prices],
     current_shares: dy.DataFrame[Shares],
     optimal_shares: dy.DataFrame[Shares],
     top_n: int = 10,
 ) -> pl.DataFrame:
     """
-    Get the top N long positions (BUY orders) by dollar value.
+    Get the top N long positions by dollar value of optimal shares.
 
     Args:
         trades: DataFrame containing trade orders
@@ -66,20 +67,25 @@ def get_top_long_positions(
 
     Returns:
         DataFrame with top long positions including current_shares, optimal_shares,
-        shares to trade, action, price, and dollar_value columns
+        shares to trade, action, price, and dollar_value columns.
+        Dollar value is computed as optimal_shares * price.
     """
     # Prepare current and optimal shares with renamed columns
     current_shares_renamed = current_shares.rename({"shares": "current_shares"})
     optimal_shares_renamed = optimal_shares.rename({"shares": "optimal_shares"})
 
-    # Filter for BUY orders, join with current/optimal shares, and calculate dollar value
+    # Join optimal shares with trades to get all positions, calculate dollar value using optimal shares
     long_positions = (
-        trades.filter(pl.col("action") == "BUY")
+        optimal_shares_renamed
+        .join(prices, on="ticker", how="left")
+        .join(trades.select('ticker', 'shares', 'action'), on="ticker", how="left")
         .join(current_shares_renamed, on="ticker", how="left")
-        .join(optimal_shares_renamed, on="ticker", how="left")
-        .with_columns(pl.col("current_shares", "optimal_shares").fill_null(0))
+        .with_columns(pl.col("current_shares").fill_null(0))
         .with_columns(
-            (pl.col("price") * pl.col("shares")).alias("dollar_value")
+            (pl.col("price") * pl.col("optimal_shares")).alias("dollar_value")
+        )
+        .select(
+            'ticker', 'current_shares', 'optimal_shares', 'shares', 'action', 'price', 'dollar_value'
         )
         .sort("dollar_value", descending=True)
         .head(top_n)

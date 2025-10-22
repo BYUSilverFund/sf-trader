@@ -202,6 +202,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         "Computing top long positions",
         tu.get_top_long_positions,
         trades=trades,
+        prices=prices,
         current_shares=current_shares,
         optimal_shares=optimal_shares,
     )
