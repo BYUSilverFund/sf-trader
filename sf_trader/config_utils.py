@@ -1,12 +1,14 @@
 from pathlib import Path
+
 import yaml
-from sf_trader.models import Config
-from sf_trader.signals import get_signal
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
 from sf_trader.combinators import get_combinator
 from sf_trader.constraints import get_constraint
-from rich.table import Table
-from rich.panel import Panel
-from rich.console import Console
+from sf_trader.models import Config
+from sf_trader.signals import get_signal
 
 
 class ConfigError(Exception):

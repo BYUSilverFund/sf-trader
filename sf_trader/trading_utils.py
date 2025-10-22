@@ -1,10 +1,10 @@
-from ib_insync import IB, LimitOrder, Stock
-import polars as pl
-from sf_trader.models import Config
 import dataframely as dy
-from sf_trader.models import Shares, Prices, Orders
+import polars as pl
+from ib_insync import IB, LimitOrder, Stock
 from rich.console import Console
 from rich.table import Table
+
+from sf_trader.models import Config, Orders, Prices, Shares
 
 
 def compute_orders(

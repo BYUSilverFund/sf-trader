@@ -1,14 +1,16 @@
+import datetime as dt
+
+import dataframely as dy
+import numpy as np
 import polars as pl
-from sf_trader.models import Config
 import sf_quant.data as sfd
 import sf_quant.optimizer as sfo
-import datetime as dt
-import numpy as np
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-import dataframely as dy
-from sf_trader.models import Prices, AssetData, Alphas, Weights, Betas, Shares
+from rich.table import Table
+
+from sf_trader.models import (Alphas, AssetData, Betas, Config, Prices, Shares,
+                              Weights)
 
 
 def get_tradable_tickers(df: dy.DataFrame[Prices]) -> list[str]:

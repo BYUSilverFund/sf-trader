@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-import polars as pl
 from typing import Callable, List
-from sf_quant.optimizer.constraints import Constraint
+
 import dataframely as dy
+import polars as pl
+from sf_quant.optimizer.constraints import Constraint
 
 
 @dataclass

@@ -1,12 +1,14 @@
-import click
-from pathlib import Path
-from rich.console import Console
 import datetime as dt
+from pathlib import Path
+from typing import Any, Callable
+
+import click
+from rich.console import Console
+
+import sf_trader.config_utils as cu
 import sf_trader.data_utils as du
 import sf_trader.portfolio_utils as pu
-import sf_trader.config_utils as cu
 import sf_trader.trading_utils as tu
-from typing import Callable, Any
 
 console = Console()
 

@@ -1,10 +1,12 @@
+import asyncio
 import datetime as dt
+
+import dataframely as dy
 import polars as pl
 import sf_quant.data as sfd
 from ib_insync import IB, Stock
-import asyncio
-import dataframely as dy
-from sf_trader.models import AssetData, Shares, Prices, Betas
+
+from sf_trader.models import AssetData, Betas, Prices, Shares
 
 
 def get_asset_data(
