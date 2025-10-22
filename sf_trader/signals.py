@@ -1,13 +1,6 @@
-from dataclasses import dataclass
-
 import polars as pl
 
-
-@dataclass
-class Signal:
-    name: str
-    expr: pl.Expr
-    lookback_days: int
+from sf_trader.models import Signal
 
 
 momentum = Signal(
