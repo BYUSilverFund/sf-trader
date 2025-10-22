@@ -169,9 +169,7 @@ def create_portfolio_summary_from_shares(
     prices: dy.DataFrame[Prices],
     trade_date: dt.date,
     available_funds: float,
-) -> None:
-    console = Console()
-
+) -> dict:
     # Convert trades to DataFrame
     dollars = shares.join(other=prices, on="ticker", how="left").with_columns(
         (pl.col("price") * pl.col("shares")).alias("dollars")
@@ -232,6 +230,37 @@ def create_portfolio_summary_from_shares(
     utilization = (
         total_dollars_allocated / available_funds if available_funds > 0 else 0
     )
+
+    # Return metrics for programmatic access
+    return {
+        "active_risk": active_risk,
+        "gross_exposure": gross_exposure,
+        "net_exposure": net_exposure,
+        "num_positions": num_positions,
+        "num_long": num_long,
+        "num_short": num_short,
+        "total_dollars_allocated": total_dollars_allocated,
+        "available_funds": available_funds,
+        "utilization": utilization,
+        "trades_df": merge,
+    }
+
+
+def print_portfolio_summary(metrics: dict, console: Console | None = None) -> None:
+    """Print portfolio metrics summary with detailed position tables."""
+    if console is None:
+        console = Console()
+
+    merge = metrics["trades_df"]
+    active_risk = metrics["active_risk"]
+    gross_exposure = metrics["gross_exposure"]
+    net_exposure = metrics["net_exposure"]
+    num_positions = metrics["num_positions"]
+    num_long = metrics["num_long"]
+    num_short = metrics["num_short"]
+    total_dollars_allocated = metrics["total_dollars_allocated"]
+    available_funds = metrics["available_funds"]
+    utilization = metrics["utilization"]
 
     # Create metrics table
     metrics_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -330,17 +359,3 @@ def create_portfolio_summary_from_shares(
         console.print(short_table)
 
     console.print()
-
-    # Return metrics for programmatic access
-    return {
-        "active_risk": active_risk,
-        "gross_exposure": gross_exposure,
-        "net_exposure": net_exposure,
-        "num_positions": num_positions,
-        "num_long": num_long,
-        "num_short": num_short,
-        "total_dollars_allocated": total_dollars_allocated,
-        "available_funds": available_funds,
-        "utilization": utilization,
-        "trades_df": merge,
-    }

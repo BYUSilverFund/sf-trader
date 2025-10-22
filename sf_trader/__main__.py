@@ -172,7 +172,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
     )
 
     # 11. Check portfolio metrics
-    execute_step(
+    metrics = execute_step(
         "Computing portfolio metrics",
         pu.create_portfolio_summary_from_shares,
         shares=optimal_shares,
@@ -180,6 +180,7 @@ def run(config: Path, dry_run: bool, prices: str, trade_date: dt.datetime | None
         trade_date=trade_date,
         available_funds=available_funds,
     )
+    pu.print_portfolio_summary(metrics, console=console)
 
     # 12. Get current positions (shares)
     current_shares = execute_step("Fetching positions from IBKR", du.get_ibkr_positions)
