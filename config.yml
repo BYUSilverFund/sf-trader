@@ -12,7 +12,7 @@ constraints:
 gamma: 450
 decimal-places: 4
 ignore-tickers:
-- AVDX
-- WNS
-- VBTX
-- ZIMV
+- MONDQ
+- VELO
+- BGXXQ
+- PSTX.CVR

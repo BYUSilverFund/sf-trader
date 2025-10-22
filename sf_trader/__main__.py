@@ -68,7 +68,6 @@ def main(config: Path, dry_run: bool):
         "Loading trading universe",
         du.get_tickers,
         trade_date=trade_date,
-        config=cfg,
         success_formatter=lambda result: f"Loading trading universe ([cyan]{len(result):,}[/cyan] tickers)"
     )
 
@@ -122,41 +121,59 @@ def main(config: Path, dry_run: bool):
     )
 
     # 8. Get portfolio weights
-    weights = execute_step(
+    optimal_weights = execute_step(
         "Optimizing portfolio weights",
-        pu.get_portfolio_weights,
+        pu.get_optimal_weights,
         alphas,
         config=cfg,
         trade_date=trade_date
     )
 
     # 9. Get trades
-    trades = execute_step(
+    optimal_shares = execute_step(
         "Generating trade orders",
-        pu.get_trades,
-        weights,
+        pu.get_optimal_shares,
+        optimal_weights,
         prices,
-        config=cfg,
         available_funds=available_funds
     )
-
+    print(optimal_shares.sort('ticker'))
     # 10. Check portfolio metrics
     execute_step(
         "Computing portfolio metrics",
         pu.create_portfolio_summary_with_trades,
-        trades,
+        optimal_shares,
         trade_date,
         available_funds
     )
 
+    # 11. Get current positions
+    current_shares = execute_step(
+        "Fetching positions from IBKR",
+        du.get_ibkr_positions
+    )
+
+    # 12. Get trades
+    trades = execute_step(
+        "Computing trade list",
+        tu.get_trades,
+        current_shares,
+        optimal_shares,
+        config=cfg
+    )
+
+    print(trades.sort('ticker'))
+
     # if not dry_run:
-    #     # 11. Execute trades
-    #     console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
-    #     result = execute_step(
-    #         "Executing trades",
-    #         tu.submit_limit_orders,
-    #         trades=trades,
-    #     )
+    # 11. Execute trades
+    console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+    result = execute_step(
+        "Executing trades",
+        tu.submit_limit_orders,
+        trades=trades,
+    )
+
+    result.write_csv("trades.csv")
     
 if __name__ == '__main__':
     main()

@@ -20,26 +20,6 @@ def get_tradable_tickers(df: pl.DataFrame) -> list[str]:
         .to_list()
     )
 
-def get_trades(weights: pl.DataFrame, prices: pl.DataFrame, config: Config, available_funds: float) -> pl.DataFrame:
-    return (
-        weights
-        .join(
-            prices,
-            on='ticker',
-            how='left'
-        )
-        .with_columns(
-            pl.lit(available_funds).mul(pl.col('weight')).alias('dollars')
-        )
-        .with_columns(
-            pl.col('dollars').truediv(pl.col('price')).floor().alias('shares')
-        )
-        .select(
-            'ticker',
-            'price',
-            'shares'
-        )
-    )
 def get_alphas(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
     signals = config.signals
     signal_combinator = config.signal_combinator
@@ -93,7 +73,7 @@ def get_ticker_barrid_mapping(trade_date: dt.date) -> list[str]:
         )
     )
 
-def get_portfolio_weights(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
+def get_optimal_weights(df: pl.DataFrame, config: Config, trade_date: dt.date) -> pl.DataFrame:
     df = df.sort('barrid')
 
     gamma = config.gamma
@@ -138,6 +118,27 @@ def get_portfolio_weights(df: pl.DataFrame, config: Config, trade_date: dt.date)
             how='left'
         )
         .sort('barrid', 'weight')
+    )
+
+def get_optimal_shares(weights: pl.DataFrame, prices: pl.DataFrame, available_funds: float) -> pl.DataFrame:
+    return (
+        weights
+        .join(
+            prices,
+            on='ticker',
+            how='left'
+        )
+        .with_columns(
+            pl.lit(available_funds).mul(pl.col('weight')).alias('dollars')
+        )
+        .with_columns(
+            pl.col('dollars').truediv(pl.col('price')).floor().alias('shares')
+        )
+        .select(
+            'ticker',
+            'price',
+            'shares',
+        )
     )
 
 def compute_active_risk(

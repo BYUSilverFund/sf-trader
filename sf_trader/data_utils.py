@@ -33,15 +33,12 @@ def get_asset_data(tickers: list[str], trade_date: dt.date, lookback_days: int) 
         .sort('barrid', 'date')
     )
 
-def get_tickers(trade_date: dt.date, config: Config) -> pl.DataFrame:
+def get_tickers(trade_date: dt.date) -> pl.DataFrame:
     return (
         sfd.load_assets_by_date(
             date_=trade_date,
             columns=['ticker'],
             in_universe=True
-        )
-        .filter(
-            pl.col('ticker').is_in(config.ignore_tickers).not_()
         )
         ['ticker']
         .unique()
@@ -141,3 +138,37 @@ def get_ibkr_prices(tickers: list[str], status=None) -> pl.DataFrame:
             pl.mean_horizontal('bid', 'ask').alias('price')
         )
     )
+
+def get_ibkr_positions() -> pl.DataFrame:
+    """Get current positions from IBKR account"""
+    # Create an IB instance
+    ib = IB()
+
+    # Connect to TWS or IB Gateway
+    # Default ports: TWS live=7496, TWS paper=7497, Gateway live=4001, Gateway paper=4002
+    ib.connect('127.0.0.1', 7497, clientId=1)
+
+    # Get positions
+    positions = ib.positions()
+
+    # Convert to list of dicts
+    data = []
+    for position in positions:
+        # IBKR uses spaces in symbols like "BRK B", convert back to "BRK.B"
+        ticker = position.contract.symbol.replace(' ', '.')
+
+        data.append({
+            'ticker': ticker,
+            'shares': position.position,
+        })
+
+    ib.disconnect()
+
+    if not data:
+        # Return empty DataFrame with correct schema
+        return pl.DataFrame({
+            'ticker': [],
+            'shares': [],
+        })
+
+    return pl.DataFrame(data)

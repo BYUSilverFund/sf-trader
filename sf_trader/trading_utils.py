@@ -1,10 +1,53 @@
 from ib_insync import IB, LimitOrder, Stock, util
 import polars as pl
 import time
+from sf_trader.models import Config
+
+def get_trades(current_shares: pl.DataFrame, optimal_shares: pl.DataFrame, config: Config) -> pl.DataFrame:
+    tickers = list(set(current_shares['ticker'].to_list() + optimal_shares['ticker'].to_list()))
+
+    current_shares = current_shares.rename({'shares': 'current_shares'})
+    optimal_shares = optimal_shares.rename({'shares': 'optimal_shares'})
+
+    return (
+        pl.DataFrame({'ticker': tickers})
+        .join(current_shares, on='ticker', how='left')
+        .join(optimal_shares, on='ticker', how='left')
+        .with_columns(
+            pl.col('current_shares', 'optimal_shares').fill_null(0)
+        )
+        .with_columns(
+            pl.col('optimal_shares').sub('current_shares').alias('shares')
+        )
+        .with_columns(
+            pl.when(pl.col('shares').gt(0))
+            .then(pl.lit('BUY'))
+            .when(pl.col('shares').lt(0))
+            .then(pl.lit("SELL"))
+            .otherwise(pl.lit("HOLD"))
+            .alias('action')
+        )
+        .with_columns(
+            pl.col('shares').abs()
+        )
+        .select(
+            'ticker',
+            'price',
+            'shares',
+            'action'
+        )
+        .filter(
+            pl.col('ticker').is_in(config.ignore_tickers).not_(),
+            pl.col('shares').ne(0),
+            pl.col('action').ne('HOLD'),
+            pl.col('price').is_not_null()
+        )
+        .sort('ticker')
+    )
 
 def submit_limit_orders(
     trades: pl.DataFrame,
-):
+) -> pl.DataFrame:
     """Submit limit orders for securities in dataframe"""
 
     # Connect to IBKR
@@ -18,7 +61,7 @@ def submit_limit_orders(
             ticker = trade["ticker"]
             price = trade["price"]
             quantity = trade["shares"]
-            action = "BUY"
+            action = trade["action"]
 
             # Calculate limit price (add adjustments here)
             limit_price = round(price + .01, 2)
@@ -57,6 +100,7 @@ def submit_limit_orders(
                 f"✓ {ticker}: Order {trade.order.orderId} - {action} {quantity} @ ${limit_price}"
             )
 
+
         except Exception as e:
             results.append(
                 {
@@ -73,53 +117,28 @@ def submit_limit_orders(
             )
             print(f"✗ {ticker}: Error - {str(e)}")
 
-        break
-
     # Disconnect
     ib.disconnect()
 
     return pl.DataFrame(results)
 
+# if __name__ == '__main__':
+#     current_shares = pl.from_dicts([
+#         {'ticker': 'AAPL', 'shares': 10}, # Left
+#         {'ticker': 'NVDA', 'shares': 10}, # Inner
+#         {'ticker': 'K', 'shares': 10}, # Inner
+#         {'ticker': 'GOOGL', 'shares': 10} # Inner
+#     ])
 
-# # Monitor order status
-# def monitor_orders(ib, order_ids, timeout=300):
-#     """Monitor orders until filled or timeout"""
-#     start_time = time.time()
+#     optimal_shares = pl.from_dicts([
+#         {'ticker': 'NVDA', 'shares': 5}, # Inner + less
+#         {'ticker': 'K', 'shares': 15}, # Inner + more
+#         {'ticker': 'GOOGL', 'shares': 10}, # Inner + same
+#         {'ticker': 'F', 'shares': 10}, # Right
+#     ])
 
-#     while time.time() - start_time < timeout:
-#         trades = ib.trades()
+#     print(current_shares)
+#     print(optimal_shares)
 
-#         for trade in trades:
-#             if trade.order.orderId in order_ids:
-#                 print(
-#                     f"Order {trade.order.orderId}: {trade.orderStatus.status} - "
-#                     f"Filled: {trade.orderStatus.filled}/{trade.order.totalQuantity}"
-#                 )
-
-#         # Check if all orders are complete
-#         active_orders = [
-#             t
-#             for t in trades
-#             if t.order.orderId in order_ids
-#             and t.orderStatus.status in ["PreSubmitted", "Submitted"]
-#         ]
-
-#         if not active_orders:
-#             print("All orders completed!")
-#             break
-
-#         ib.sleep(5)
-
-
-# # Monitor the orders
-# order_ids = results_df[results_df["orderId"].notna()]["orderId"].tolist()
-# monitor_orders(ib, order_ids)
-
-
-# # Cancel all pending orders (if needed)
-# def cancel_all_orders(ib):
-#     """Cancel all open orders"""
-#     for trade in ib.openTrades():
-#         ib.cancelOrder(trade.order)
-#         print(f"Cancelled order {trade.order.orderId}")
-
+#     trades = get_trades(current_shares=current_shares, optimal_shares=optimal_shares)
+#     print(trades)
