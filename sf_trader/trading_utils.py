@@ -80,7 +80,11 @@ def get_top_long_positions(
         .join(prices, on="ticker", how="left")
         .join(trades.select('ticker', 'shares', 'action'), on="ticker", how="left")
         .join(current_shares_renamed, on="ticker", how="left")
-        .with_columns(pl.col("current_shares").fill_null(0))
+        .with_columns(
+            pl.col("current_shares").fill_null(0),
+            pl.col("action").fill_null("HOLD"),
+            pl.col("shares").fill_null(0),
+        )
         .with_columns(
             (pl.col("price") * pl.col("optimal_shares")).alias("dollar_value")
         )
