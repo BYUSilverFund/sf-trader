@@ -4,6 +4,7 @@ from typing import Any, Callable
 
 import click
 from rich.console import Console
+import polars as pl
 
 import sf_trader.config_utils as cu
 import sf_trader.data_utils as du
@@ -249,38 +250,25 @@ def sell_all(dry_run: bool):
         console.print("[yellow]No positions found to sell[/yellow]\n")
         return
 
-    # 2. Get current prices for these positions
-    tickers = current_shares["ticker"].to_list()
-    prices = execute_step(
-        "Fetching current prices from IBKR",
-        du.get_ibkr_prices,
-        tickers=tickers,
-        pass_status=True,
-    )
-
-    # 3. Create sell orders for all positions
-    import polars as pl
+    # 2. Create sell orders for all positions
 
     sell_orders = (
-        current_shares.join(prices, on="ticker", how="inner")
-        .with_columns(pl.lit("SELL").alias("action"))
-        .select("ticker", "price", "shares", "action")
+        current_shares.with_columns(pl.lit("SELL").alias("action"))
+        .select("ticker", "shares", "action")
     )
 
-    # 4. Show summary
-    total_value = (sell_orders["price"] * sell_orders["shares"]).sum()
+    # 3. Show summary
     console.print(f"\n[bold]Positions to sell:[/bold] {len(sell_orders)}")
-    console.print(f"[bold]Total value:[/bold] [cyan]${total_value:,.2f}[/cyan]\n")
+    console.print(f"[bold]Total shares:[/bold] [cyan]{sell_orders['shares'].sum():,.0f}[/cyan]\n")
 
     # Show the orders
-    console.print("[bold]Orders:[/bold]")
+    console.print("[bold]Market Orders:[/bold]")
     for order in sell_orders.to_dicts():
-        value = order["price"] * order["shares"]
         console.print(
-            f"  • {order['ticker']}: SELL {order['shares']:.0f} @ ${order['price']:.2f} = [cyan]${value:,.2f}[/cyan]"
+            f"  • {order['ticker']}: SELL {order['shares']:.0f} @ MARKET"
         )
 
-    # 5. Execute if not dry run
+    # 4. Execute if not dry run
     if not dry_run:
         console.print()
         if click.confirm(
