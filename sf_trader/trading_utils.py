@@ -57,7 +57,7 @@ def submit_limit_orders(
 
     for trade in trades.to_dicts():
         try:
-            ticker = trade["ticker"]
+            ticker = trade["ticker"].replace(".", " ")
             price = trade["price"]
             quantity = trade["shares"]
             action = trade["action"]
