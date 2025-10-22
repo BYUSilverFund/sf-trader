@@ -1,6 +1,8 @@
+import time
+
 import dataframely as dy
 import polars as pl
-from ib_insync import IB, LimitOrder, Stock
+from ib_insync import IB, MarketOrder, Stock
 from rich.console import Console
 from rich.table import Table
 
@@ -149,51 +151,56 @@ def submit_limit_orders(
     ib = IB()
     ib.connect("127.0.0.1", 7497, clientId=1)  # Use 7497 for TWS, 4002 for IB Gateway
 
+    # Validate connection
+    if not ib.isConnected():
+        raise ConnectionError("Failed to connect to IBKR")
+
     results = []
+    batch_size = 50
 
-    for trade in trades.to_dicts():
+    for idx, trade_data in enumerate(trades.to_dicts()):
         try:
-            ticker = trade["ticker"].replace(".", " ")
-            price = trade["price"]
-            quantity = trade["shares"]
-            action = trade["action"]
-
-            # Calculate limit price (add adjustments here)
-            limit_price = round(price + 0.01, 2)
+            ticker = trade_data["ticker"].replace(".", " ")
+            quantity = trade_data["shares"]
+            action = trade_data["action"]
 
             # Create contract
             contract = Stock(ticker, "SMART", "USD")
 
-            # Create limit order
-            order = LimitOrder(
+            # Create market order
+            order = MarketOrder(
                 action=action,
                 totalQuantity=quantity,
-                lmtPrice=limit_price,
             )
 
             # Place order
-            trade = ib.placeOrder(contract, order)
+            ib_trade = ib.placeOrder(contract, order)
 
             # Wait for order acknowledgment
-            ib.sleep(0.5)
+            ib.sleep(0.02)
 
             results.append(
                 {
                     "ticker": ticker,
-                    "orderId": trade.order.orderId,
-                    "status": trade.orderStatus.status,
+                    "orderId": ib_trade.order.orderId,
+                    "status": ib_trade.orderStatus.status,
                     "action": action,
                     "quantity": quantity,
-                    "limit_price": limit_price,
-                    "filled": trade.orderStatus.filled,
-                    "remaining": trade.orderStatus.remaining,
+                    "limit_price": None,
+                    "filled": ib_trade.orderStatus.filled,
+                    "remaining": ib_trade.orderStatus.remaining,
                     "error": None,
                 }
             )
 
             print(
-                f"✓ {ticker}: Order {trade.order.orderId} - {action} {quantity} @ ${limit_price}"
+                f"✓ {ticker}: Order {ib_trade.order.orderId} - {action} {quantity} @ MARKET"
             )
+
+            # Rate limiting: pause after every batch_size orders
+            if (idx + 1) % batch_size == 0:
+                print(f"Processed {idx + 1} orders, pausing for rate limiting...")
+                time.sleep(1)
 
         except Exception as e:
             results.append(
@@ -210,6 +217,9 @@ def submit_limit_orders(
                 }
             )
             print(f"✗ {ticker}: Error - {str(e)}")
+
+    # Final sleep to ensure all orders are acknowledged
+    time.sleep(1)
 
     # Disconnect
     ib.disconnect()
