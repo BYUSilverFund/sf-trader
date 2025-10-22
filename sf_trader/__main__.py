@@ -11,6 +11,11 @@ import polars as pl
 
 console = Console()
 
+@click.group()
+def cli():
+    """sf-trader: Interactive terminal trading application"""
+    pass
+
 def execute_step(step_name: str, func: Callable, *args, success_formatter: Callable[[Any], str] | None = None, pass_status: bool = False, **kwargs) -> Any:
     """Execute a step with a spinner and show success/failure status.
 
@@ -37,7 +42,7 @@ def execute_step(step_name: str, func: Callable, *args, success_formatter: Calla
             console.print(f"[red]  Error: {str(e)}[/red]")
             raise
 
-@click.command()
+@cli.command()
 @click.option(
     '--config',
     type=click.Path(exists=True, path_type=Path),
@@ -49,8 +54,14 @@ def execute_step(step_name: str, func: Callable, *args, success_formatter: Calla
     is_flag=True,
     help='Simulate trades without executing'
 )
-def main(config: Path, dry_run: bool):
-    """sf-trader: Interactive terminal trading application"""
+@click.option(
+    '--prices',
+    type=click.Choice(['ibkr', 'barra'], case_sensitive=False),
+    default='ibkr',
+    help='Price source to use (default: ibkr)'
+)
+def run(config: Path, dry_run: bool, prices: str):
+    """Run the full trading pipeline"""
     console.print("\n[bold cyan]sf-trader[/bold cyan] - Interactive Trading Application\n")
 
     trade_date = dt.date(2025, 10, 17)
@@ -79,13 +90,13 @@ def main(config: Path, dry_run: bool):
     )
 
     # 4. Get prices
-    if dry_run:
+    if prices == 'barra':
         prices = execute_step(
-            "Loading historical prices",
+            "Loading historical prices from Barra",
             du.get_barra_prices,
             trade_date=trade_date
         )
-    else:
+    else:  # ibkr
         prices = execute_step(
             "Fetching prices from IBKR",
             du.get_ibkr_prices,
@@ -137,7 +148,7 @@ def main(config: Path, dry_run: bool):
         prices,
         available_funds=available_funds
     )
-    print(optimal_shares.sort('ticker'))
+
     # 10. Check portfolio metrics
     execute_step(
         "Computing portfolio metrics",
@@ -162,18 +173,32 @@ def main(config: Path, dry_run: bool):
         config=cfg
     )
 
-    print(trades.sort('ticker'))
+    # 13. Execute trades
+    if not dry_run:
+        console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+        execute_step(
+            "Executing trades",
+            tu.submit_limit_orders,
+            trades=trades,
+        )
 
-    # if not dry_run:
-    # 11. Execute trades
-    console.print("\n[bold green]Portfolio ready for execution![/bold green]\n")
+
+@cli.command()
+def clear_orders():
+    """Cancel all open orders in IBKR"""
+    console.print("\n[bold cyan]sf-trader[/bold cyan] - Clear Orders\n")
+
     result = execute_step(
-        "Executing trades",
-        tu.submit_limit_orders,
-        trades=trades,
+        "Cancelling all open orders",
+        tu.clear_ibkr_orders,
+        success_formatter=lambda result: f"Cancelled {len(result)} order(s)"
     )
 
-    result.write_csv("trades.csv")
-    
+    if len(result) > 0:
+        console.print("\n[bold]Order Cancellation Results:[/bold]")
+        print(result)
+
+    console.print("\n[bold green]Done![/bold green]\n")
+
 if __name__ == '__main__':
-    main()
+    cli()

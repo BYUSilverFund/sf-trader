@@ -1,6 +1,5 @@
-from ib_insync import IB, LimitOrder, Stock, util
+from ib_insync import IB, LimitOrder, Stock
 import polars as pl
-import time
 from sf_trader.models import Config
 
 def get_trades(current_shares: pl.DataFrame, optimal_shares: pl.DataFrame, config: Config) -> pl.DataFrame:
@@ -122,23 +121,67 @@ def submit_limit_orders(
 
     return pl.DataFrame(results)
 
-# if __name__ == '__main__':
-#     current_shares = pl.from_dicts([
-#         {'ticker': 'AAPL', 'shares': 10}, # Left
-#         {'ticker': 'NVDA', 'shares': 10}, # Inner
-#         {'ticker': 'K', 'shares': 10}, # Inner
-#         {'ticker': 'GOOGL', 'shares': 10} # Inner
-#     ])
+def clear_ibkr_orders() -> pl.DataFrame:
+    """Cancel all open orders in IBKR account
 
-#     optimal_shares = pl.from_dicts([
-#         {'ticker': 'NVDA', 'shares': 5}, # Inner + less
-#         {'ticker': 'K', 'shares': 15}, # Inner + more
-#         {'ticker': 'GOOGL', 'shares': 10}, # Inner + same
-#         {'ticker': 'F', 'shares': 10}, # Right
-#     ])
+    Returns:
+        DataFrame with order cancellation results containing:
+        - orderId: The order ID that was cancelled
+        - ticker: The ticker symbol
+        - status: Cancellation status
+        - error: Error message if any
+    """
+    # Connect to IBKR
+    ib = IB()
+    ib.connect("127.0.0.1", 7497, clientId=1)  # Use 7497 for TWS, 4002 for IB Gateway
 
-#     print(current_shares)
-#     print(optimal_shares)
+    # Get all open trades (includes order, contract, and status)
+    open_trades = ib.openTrades()
 
-#     trades = get_trades(current_shares=current_shares, optimal_shares=optimal_shares)
-#     print(trades)
+    results = []
+
+    if not open_trades:
+        print("No open orders to cancel")
+        ib.disconnect()
+        return pl.DataFrame({
+            'orderId': [],
+            'ticker': [],
+            'status': [],
+            'error': []
+        })
+
+    print(f"Found {len(open_trades)} open order(s) to cancel")
+
+    for trade in open_trades:
+        try:
+            order_id = trade.order.orderId
+            ticker = trade.contract.symbol
+
+            # Cancel the order
+            ib.cancelOrder(trade.order)
+
+            # Wait for cancellation acknowledgment
+            ib.sleep(0.5)
+
+            results.append({
+                'orderId': order_id,
+                'ticker': ticker,
+                'status': 'CANCELLED',
+                'error': None
+            })
+
+            print(f"✓ Cancelled order {order_id} for {ticker}")
+
+        except Exception as e:
+            results.append({
+                'orderId': order_id if 'order_id' in locals() else None,
+                'ticker': ticker if 'ticker' in locals() else 'UNKNOWN',
+                'status': 'ERROR',
+                'error': str(e)
+            })
+            print(f"✗ Error cancelling order: {str(e)}")
+
+    # Disconnect
+    ib.disconnect()
+
+    return pl.DataFrame(results)
