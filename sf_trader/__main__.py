@@ -248,25 +248,48 @@ def clear_orders():
 
 @cli.command()
 @click.option("--dry-run", is_flag=True, help="Show positions without executing sells")
-def sell_all(dry_run: bool):
-    """Sell all current positions in IBKR"""
+@click.option(
+    "--config",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+def sell_all(dry_run: bool, config: Path):
+    """Sell all current positions in IBKR (excluding ignore_tickers from config)"""
     console.print("\n[bold cyan]sf-trader[/bold cyan] - Sell All Positions\n")
 
-    # 1. Get current positions
+    # 1. Load config to get ignore_tickers
+    cfg = execute_step("Parsing configuration", cu.load_config, config)
+
+    # 2. Get current positions
     current_shares = execute_step("Fetching positions from IBKR", du.get_ibkr_positions)
 
     if len(current_shares) == 0:
         console.print("[yellow]No positions found to sell[/yellow]\n")
         return
 
-    # 2. Create sell orders for all positions
+    # 3. Filter out ignored tickers
+    initial_count = len(current_shares)
+    current_shares = current_shares.filter(
+        pl.col("ticker").is_in(cfg.ignore_tickers).not_()
+    )
+
+    filtered_count = initial_count - len(current_shares)
+    if filtered_count > 0:
+        console.print(f"[yellow]Excluding {filtered_count} position(s) from ignore_tickers[/yellow]")
+
+    if len(current_shares) == 0:
+        console.print("[yellow]No positions to sell after filtering ignore_tickers[/yellow]\n")
+        return
+
+    # 4. Create sell orders for all positions
 
     sell_orders = (
         current_shares.with_columns(pl.lit("SELL").alias("action"))
         .select("ticker", "shares", "action")
     )
 
-    # 3. Show summary
+    # 5. Show summary
     console.print(f"\n[bold]Positions to sell:[/bold] {len(sell_orders)}")
     console.print(f"[bold]Total shares:[/bold] [cyan]{sell_orders['shares'].sum():,.0f}[/cyan]\n")
 
@@ -277,7 +300,7 @@ def sell_all(dry_run: bool):
             f"  • {order['ticker']}: SELL {order['shares']:.0f} @ MARKET"
         )
 
-    # 4. Execute if not dry run
+    # 6. Execute if not dry run
     if not dry_run:
         console.print()
         if click.confirm(
