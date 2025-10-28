@@ -276,29 +276,32 @@ def sell_all(dry_run: bool, config: Path):
 
     filtered_count = initial_count - len(current_shares)
     if filtered_count > 0:
-        console.print(f"[yellow]Excluding {filtered_count} position(s) from ignore_tickers[/yellow]")
+        console.print(
+            f"[yellow]Excluding {filtered_count} position(s) from ignore_tickers[/yellow]"
+        )
 
     if len(current_shares) == 0:
-        console.print("[yellow]No positions to sell after filtering ignore_tickers[/yellow]\n")
+        console.print(
+            "[yellow]No positions to sell after filtering ignore_tickers[/yellow]\n"
+        )
         return
 
     # 4. Create sell orders for all positions
 
-    sell_orders = (
-        current_shares.with_columns(pl.lit("SELL").alias("action"))
-        .select("ticker", "shares", "action")
+    sell_orders = current_shares.with_columns(pl.lit("SELL").alias("action")).select(
+        "ticker", "shares", "action"
     )
 
     # 5. Show summary
     console.print(f"\n[bold]Positions to sell:[/bold] {len(sell_orders)}")
-    console.print(f"[bold]Total shares:[/bold] [cyan]{sell_orders['shares'].sum():,.0f}[/cyan]\n")
+    console.print(
+        f"[bold]Total shares:[/bold] [cyan]{sell_orders['shares'].sum():,.0f}[/cyan]\n"
+    )
 
     # Show the orders
     console.print("[bold]Market Orders:[/bold]")
     for order in sell_orders.to_dicts():
-        console.print(
-            f"  • {order['ticker']}: SELL {order['shares']:.0f} @ MARKET"
-        )
+        console.print(f"  • {order['ticker']}: SELL {order['shares']:.0f} @ MARKET")
 
     # 6. Execute if not dry run
     if not dry_run:

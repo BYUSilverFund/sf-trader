@@ -9,8 +9,15 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from sf_trader.models import (Alphas, AssetData, Betas, Config, Prices, Shares,
-                              Weights)
+from sf_trader.components.models import (
+    Alphas,
+    AssetData,
+    Betas,
+    Config,
+    Prices,
+    Shares,
+    Weights,
+)
 
 
 def get_tradable_tickers(df: dy.DataFrame[Prices]) -> list[str]:

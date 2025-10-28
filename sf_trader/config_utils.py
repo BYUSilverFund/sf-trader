@@ -5,10 +5,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from sf_trader.combinators import get_combinator
-from sf_trader.constraints import get_constraint
-from sf_trader.models import Config
-from sf_trader.signals import get_signal
+from sf_trader.components.combinators import get_combinator
+from sf_trader.components.constraints import get_constraint
+from sf_trader.components.models import Config
+from sf_trader.components.signals import get_signal
 
 
 class ConfigError(Exception):

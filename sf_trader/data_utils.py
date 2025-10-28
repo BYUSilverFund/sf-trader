@@ -6,7 +6,7 @@ import polars as pl
 import sf_quant.data as sfd
 from ib_insync import IB, Stock
 
-from sf_trader.models import AssetData, Betas, Prices, Shares
+from sf_trader.components.models import AssetData, Betas, Prices, Shares
 
 
 def get_asset_data(

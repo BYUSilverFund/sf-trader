@@ -6,7 +6,7 @@ from ib_insync import IB, MarketOrder, Stock
 from rich.console import Console
 from rich.table import Table
 
-from sf_trader.models import Config, Orders, Prices, Shares
+from sf_trader.components.models import Config, Orders, Prices, Shares
 
 
 def compute_orders(
@@ -78,9 +78,8 @@ def get_top_long_positions(
 
     # Join optimal shares with trades to get all positions, calculate dollar value using optimal shares
     long_positions = (
-        optimal_shares_renamed
-        .join(prices, on="ticker", how="left")
-        .join(trades.select('ticker', 'shares', 'action'), on="ticker", how="left")
+        optimal_shares_renamed.join(prices, on="ticker", how="left")
+        .join(trades.select("ticker", "shares", "action"), on="ticker", how="left")
         .join(current_shares_renamed, on="ticker", how="left")
         .with_columns(
             pl.col("current_shares").fill_null(0),
@@ -91,7 +90,13 @@ def get_top_long_positions(
             (pl.col("price") * pl.col("optimal_shares")).alias("dollar_value")
         )
         .select(
-            'ticker', 'current_shares', 'optimal_shares', 'shares', 'action', 'price', 'dollar_value'
+            "ticker",
+            "current_shares",
+            "optimal_shares",
+            "shares",
+            "action",
+            "price",
+            "dollar_value",
         )
         .sort("dollar_value", descending=True)
         .head(top_n)
@@ -116,7 +121,11 @@ def print_top_long_positions(
         return
 
     # Create a rich table
-    table = Table(title=f"Top {long_positions.height} Long Positions", show_header=True, header_style="bold cyan")
+    table = Table(
+        title=f"Top {long_positions.height} Long Positions",
+        show_header=True,
+        header_style="bold cyan",
+    )
     table.add_column("Ticker", style="cyan")
     table.add_column("Current Shares", justify="right", style="white")
     table.add_column("Optimal Shares", justify="right", style="white")
@@ -161,11 +170,8 @@ def get_top_trades(
     """
     # Join trades with prices and calculate dollar value
     top_trades = (
-        trades
-        .join(prices, on="ticker", how="left", suffix="_price")
-        .with_columns(
-            (pl.col("shares") * pl.col("price")).alias("dollar_value")
-        )
+        trades.join(prices, on="ticker", how="left", suffix="_price")
+        .with_columns((pl.col("shares") * pl.col("price")).alias("dollar_value"))
         .select("ticker", "action", "shares", "price", "dollar_value")
         .sort("dollar_value", descending=True)
         .head(top_n)
@@ -190,7 +196,11 @@ def print_top_trades(
         return
 
     # Create a rich table
-    table = Table(title=f"Top {top_trades.height} Trades by Dollar Value", show_header=True, header_style="bold cyan")
+    table = Table(
+        title=f"Top {top_trades.height} Trades by Dollar Value",
+        show_header=True,
+        header_style="bold cyan",
+    )
     table.add_column("Ticker", style="cyan")
     table.add_column("Action", justify="center", style="bold yellow")
     table.add_column("Shares", justify="right", style="white")
