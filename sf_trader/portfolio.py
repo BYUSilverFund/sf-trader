@@ -1,14 +1,13 @@
 from sf_trader.components.models import Shares
 import dataframely as dy
 from sf_trader.config import Config
-from sf_trader.broker.test import TestClient
 import sf_trader.utils.data
 import sf_trader.utils.functions
 
 
 def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     # Connect to broker
-    broker = TestClient(config=config)
+    broker = config.broker
 
     # Config data loader
     sf_trader.utils.data.set_config(config=config)

@@ -1,6 +1,7 @@
 from sf_trader.components.signals import get_signal
 from sf_trader.components.combinators import get_combinator
 from sf_trader.components.constraints import get_constraint
+from sf_trader.components.broker import get_broker
 
 import datetime as dt
 import yaml
@@ -70,4 +71,9 @@ class Config:
                 f"'decimal_places' must be an integer, got {type(self.decimal_places).__name__}"
             )
 
+        # Get data date
         self.data_date = dt.date(2025, 10, 21)
+
+        # Get broker
+        broker_name = raw_config.get("broker")
+        self.broker = get_broker(broker_name, self.data_date)

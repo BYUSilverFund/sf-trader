@@ -84,5 +84,6 @@ def post_orders(config_path: Path, orders_path: Path):
     orders = Orders.validate(pl.read_csv(orders_path))
     sf_trader.orders.post_orders(orders=orders, config=config)
 
+
 if __name__ == "__main__":
     cli()

@@ -16,3 +16,4 @@ ignore-tickers:
 - VELO
 - BGXXQ
 - PSTX.CVR
+broker: test

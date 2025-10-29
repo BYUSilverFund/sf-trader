@@ -1,7 +1,6 @@
 from sf_trader.components.models import Orders, Shares
 from sf_trader.config import Config
 import dataframely as dy
-from sf_trader.broker.test import TestClient
 import sf_trader.utils.data
 import sf_trader.utils.functions
 
@@ -10,7 +9,7 @@ def get_orders(
     optimal_shares: dy.DataFrame[Shares], config: Config
 ) -> dy.DataFrame[Orders]:
     # Connect to broker
-    broker = TestClient(config=config)
+    broker = config.broker
 
     # Config data loader
     sf_trader.utils.data.set_config(config=config)
@@ -37,7 +36,7 @@ def get_orders(
 
 def post_orders(orders: dy.DataFrame[Orders], config: Config) -> None:
     # Connect to broker
-    broker = TestClient(config=config)
+    broker = config.broker
 
     # Execute trades
     broker.post_orders(orders=orders)
