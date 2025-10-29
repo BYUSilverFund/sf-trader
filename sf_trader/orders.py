@@ -35,5 +35,9 @@ def get_orders(
     return Orders.validate(orders)
 
 
-def post_orders() -> None:
-    pass
+def post_orders(orders: dy.DataFrame[Orders], config: Config) -> None:
+    # Connect to broker
+    broker = TestClient(config=config)
+
+    # Execute trades
+    broker.post_orders(orders=orders)

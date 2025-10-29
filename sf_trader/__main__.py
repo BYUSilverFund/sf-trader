@@ -6,6 +6,7 @@ import polars as pl
 import sf_trader.portfolio
 import sf_trader.orders
 from sf_trader.config import Config
+from sf_trader.components.models import Orders, Shares
 
 
 @click.group()
@@ -59,20 +60,29 @@ def get_portfolio(config_path: Path, output_file_path: Path):
 )
 def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
     config = Config(config_path)
-    portfolio = pl.read_csv(portfolio_path)
+    portfolio = Shares.validate(pl.read_csv(portfolio_path))
     orders = sf_trader.orders.get_orders(optimal_shares=portfolio, config=config)
     orders.write_csv(output_file_path)
 
 
-# @cli.command()
-# @click.option(
-#     "--orders",
-#     type=click.Path(exists=True, path_type=Path),
-#     default="orderes.csv",
-#     help="Path to orders file.",
-# )
-# def post_orders(orders: Path):
-#     pass
+@cli.command()
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+@click.option(
+    "--orders-path",
+    type=click.Path(exists=True, path_type=Path),
+    default="orders.csv",
+    help="Path to orders file.",
+)
+def post_orders(config_path: Path, orders_path: Path):
+    config = Config(config_path)
+    orders = Orders.validate(pl.read_csv(orders_path))
+    sf_trader.orders.post_orders(orders=orders, config=config)
 
 if __name__ == "__main__":
     cli()
