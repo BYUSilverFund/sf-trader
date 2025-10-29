@@ -5,7 +5,7 @@ import sf_quant.data as sfd
 from sf_trader.config import Config
 from sf_trader.components.models import Prices, Assets, Alphas, Betas, Weights, Orders
 import sf_quant.optimizer as sfo
-import sf_trader.data
+import sf_trader.utils.data
 
 _config = None
 
@@ -101,7 +101,7 @@ def get_optimal_weights(
 ) -> dy.DataFrame[Weights]:
     decimal_places = _config.decimal_places
 
-    mapping = sf_trader.data.get_ticker_barrid_mapping()
+    mapping = sf_trader.utils.data.get_ticker_barrid_mapping()
     barrids = (
         mapping.join(other=pl.DataFrame({"ticker": tickers}), how="inner", on="ticker")[
             "barrid"

@@ -2,8 +2,8 @@ from sf_trader.components.models import Orders, Shares
 from sf_trader.config import Config
 import dataframely as dy
 from sf_trader.broker.test import TestClient
-import sf_trader.data
-import sf_trader.functions
+import sf_trader.utils.data
+import sf_trader.utils.functions
 
 
 def get_orders(
@@ -13,8 +13,8 @@ def get_orders(
     broker = TestClient(config=config)
 
     # Config data loader
-    sf_trader.data.set_config(config=config)
-    sf_trader.functions.set_config(config=config)
+    sf_trader.utils.data.set_config(config=config)
+    sf_trader.utils.functions.set_config(config=config)
 
     # Get current shares
     current_shares = broker.get_shares()
@@ -28,7 +28,7 @@ def get_orders(
     prices = broker.get_prices(tickers)
 
     # Get order deltas
-    orders = sf_trader.functions.get_order_deltas(
+    orders = sf_trader.utils.functions.get_order_deltas(
         current_shares=current_shares, optimal_shares=optimal_shares, prices=prices
     )
 
