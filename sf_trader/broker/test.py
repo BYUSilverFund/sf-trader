@@ -1,4 +1,4 @@
-from sf_trader.components.broker.client import BrokerClient
+from sf_trader.broker.client import BrokerClient
 import dataframely as dy
 import polars as pl
 import time

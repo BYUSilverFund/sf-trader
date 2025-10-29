@@ -1,7 +1,7 @@
 from sf_trader.components.signals import get_signal
 from sf_trader.components.combinators import get_combinator
 from sf_trader.components.constraints import get_constraint
-from sf_trader.components.broker import get_broker
+from sf_trader.broker import get_broker
 
 import datetime as dt
 import yaml
