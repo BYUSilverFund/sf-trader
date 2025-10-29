@@ -16,20 +16,24 @@ def get_orders(
     sf_trader.utils.functions.set_config(config=config)
 
     # Get current shares
-    current_shares = broker.get_shares()
+    current_shares = broker.get_positions()
 
     # Compute ticker list
     tickers = list(
         set(current_shares["ticker"].to_list() + optimal_shares["ticker"].to_list())
     )
 
-    # Get prices
+    # Get live prices
     prices = broker.get_prices(tickers)
 
     # Get order deltas
     orders = sf_trader.utils.functions.get_order_deltas(
         current_shares=current_shares, optimal_shares=optimal_shares, prices=prices
     )
+
+    # Disconnect from broker
+    del broker
+    del config.broker
 
     return Orders.validate(orders)
 

@@ -32,7 +32,7 @@ class TestClient(BrokerClient):
             print(f"✓ {ticker}: {action} {shares} @ {price}")
             time.sleep(0.01)
 
-    def get_shares(self) -> dy.DataFrame[Shares]:
+    def get_positions(self) -> dy.DataFrame[Shares]:
         shares = pl.DataFrame(
             {
                 "ticker": ["AAPL", "ACAD", "WRBY", "ZG"],

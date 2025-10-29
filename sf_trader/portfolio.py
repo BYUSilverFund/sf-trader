@@ -20,7 +20,7 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     account_value = broker.get_account_value()
 
     # Get prices
-    prices = broker.get_prices(tickers=universe)
+    prices = sf_trader.utils.data.get_prices(tickers=universe)
 
     # Get tradable universe
     tradable_universe = sf_trader.utils.functions.get_tradable_universe(prices=prices)
@@ -45,5 +45,9 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     optimal_shares = sf_trader.utils.functions.get_optimal_shares(
         weights=optimal_weights, prices=prices, account_value=account_value
     )
+
+    # Disconnect broker
+    del broker
+    del config.broker
 
     return Shares.validate(optimal_shares)

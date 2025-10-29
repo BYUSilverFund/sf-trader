@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "dataframely>=1.14.0",
-    "ib-insync>=0.9.86",
     "sf-quant>=0.1.14",
+    "tqdm>=4.67.1",
 ]
 
 [dependency-groups]

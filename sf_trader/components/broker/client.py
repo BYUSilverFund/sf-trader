@@ -19,5 +19,5 @@ class BrokerClient(ABC):
         pass
 
     @abstractmethod
-    def get_shares(self) -> dy.DataFrame[Shares]:
+    def get_positions(self) -> dy.DataFrame[Shares]:
         pass

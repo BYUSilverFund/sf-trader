@@ -2,7 +2,7 @@ import dataframely as dy
 import polars as pl
 import sf_quant.data as sfd
 from sf_trader.config import Config
-from sf_trader.components.models import Assets, Betas
+from sf_trader.components.models import Assets, Betas, Prices
 import datetime as dt
 
 _config = None
@@ -23,6 +23,12 @@ def get_universe() -> list[str]:
         .to_list()
     )
 
+def get_prices(tickers: list[str]) -> dy.DataFrame[Prices]:
+    prices = sfd.load_assets_by_date(
+        date_=_config.data_date, columns=["ticker", "price"], in_universe=True
+    ).filter(pl.col('ticker').is_in(tickers)).sort("ticker", "price")
+
+    return Prices.validate(prices)
 
 def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
     lookback_days = max([signal.lookback_days for signal in _config.signals])
