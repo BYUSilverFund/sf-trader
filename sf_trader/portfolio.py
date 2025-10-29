@@ -43,9 +43,9 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
         betas=betas,
     )
 
+    # Get optimal shares
     optimal_shares = sf_trader.functions.get_optimal_shares(
         weights=optimal_weights, prices=prices, account_value=account_value
     )
-    print(optimal_shares)
 
-    return pl.DataFrame()
+    return Shares.validate(optimal_shares)
