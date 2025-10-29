@@ -1,7 +1,8 @@
 from sf_trader.broker.client import BrokerClient
 import dataframely as dy
+import polars as pl
 
-from sf_trader.components.models import Prices, Orders
+from sf_trader.components.models import Prices, Orders, Shares
 import sf_quant.data as sfd
 from sf_trader.config import Config
 
@@ -22,3 +23,13 @@ class TestClient(BrokerClient):
 
     def post_orders(self, orders: dy.DataFrame[Orders]) -> None:
         pass
+
+    def get_shares(self) -> dy.DataFrame[Shares]:
+        shares = pl.DataFrame(
+            {
+                "ticker": ["AAPL", "ACAD", "WRBY", "ZG"],
+                "shares": [10000.0, 10000.0, 10000.0, 10000.0],
+            }
+        )
+
+        return Shares.validate(shares)

@@ -1,7 +1,10 @@
 import click
 from pathlib import Path
 
+import polars as pl
+
 import sf_trader.portfolio
+import sf_trader.orders
 from sf_trader.config import Config
 
 
@@ -32,23 +35,34 @@ def get_portfolio(config_path: Path, output_file_path: Path):
     portfolio.write_csv(output_file_path)
 
 
-# @cli.command()
-# @click.option(
-#     "--config",
-#     "-c",
-#     type=click.Path(exists=True, path_type=Path),
-#     default="config.yml",
-#     help="Path to configuration file",
-# )
-# @click.option(
-#     "--output-file-path",
-#     "-o",
-#     type=click.Path(exists=True, path_type=Path),
-#     default="orders.csv",
-#     help="Path to orders file",
-# )
-# def get_orders(config: Path, output_file_path: Path):
-#     pass
+@cli.command()
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+@click.option(
+    "--portfolio-path",
+    "-p",
+    type=click.Path(exists=True, path_type=Path),
+    default="portfolio.csv",
+    help="Path to portfolio file",
+)
+@click.option(
+    "--output-file-path",
+    "-o",
+    type=click.Path(exists=False, path_type=Path),
+    default="orders.csv",
+    help="Path to orders file",
+)
+def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
+    config = Config(config_path)
+    portfolio = pl.read_csv(portfolio_path)
+    orders = sf_trader.orders.get_orders(optimal_shares=portfolio, config=config)
+    orders.write_csv(output_file_path)
+
 
 # @cli.command()
 # @click.option(

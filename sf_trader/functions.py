@@ -3,7 +3,7 @@ import dataframely as dy
 import polars as pl
 import sf_quant.data as sfd
 from sf_trader.config import Config
-from sf_trader.components.models import Prices, Assets, Alphas, Betas, Weights
+from sf_trader.components.models import Prices, Assets, Alphas, Betas, Weights, Orders
 import sf_quant.optimizer as sfo
 import sf_trader.data
 
@@ -146,3 +146,50 @@ def get_optimal_shares(
     )
 
     return Shares.validate(optimal_shares)
+
+
+def get_order_deltas(
+    prices: dy.DataFrame[Prices],
+    current_shares: dy.DataFrame[Shares],
+    optimal_shares: dy.DataFrame[Shares],
+) -> dy.DataFrame[Orders]:
+    # Prep shares dataframes for join
+    current_shares = current_shares.rename({"shares": "current_shares"})
+    optimal_shares = optimal_shares.rename({"shares": "optimal_shares"})
+
+    orders = (
+        prices
+        # Joins
+        .join(current_shares, on="ticker", how="left")
+        .join(optimal_shares, on="ticker", how="left")
+        # Fill nulls with 0
+        .with_columns(pl.col("current_shares", "optimal_shares").fill_null(0))
+        # Compute share differential
+        .with_columns(pl.col("optimal_shares").sub("current_shares").alias("shares"))
+        # Compute order side
+        .with_columns(
+            pl.when(pl.col("shares").gt(0))
+            .then(pl.lit("BUY"))
+            .when(pl.col("shares").lt(0))
+            .then(pl.lit("SELL"))
+            .otherwise(pl.lit("HOLD"))
+            .alias("action")
+        )
+        # Absolute value the shares
+        .with_columns(pl.col("shares").abs())
+        # Select
+        .select("ticker", "price", "shares", "action")
+        # Filter
+        .filter(
+            pl.col("ticker")
+            .is_in(_config.ignore_tickers)
+            .not_(),  # Ignore problematic tickers
+            pl.col("shares").ne(0),  # Remove 0 share trades
+            pl.col("action").ne("HOLD"),  # Remove HOLDs
+            pl.col("price").is_not_null(),  # Remove unknown prices
+        )
+        # Sort
+        .sort("ticker")
+    )
+
+    return Orders.validate(orders)

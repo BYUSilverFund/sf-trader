@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import dataframely as dy
 
-from sf_trader.components.models import Prices, Orders
+from sf_trader.components.models import Prices, Orders, Shares
 from sf_trader.config import Config
 
 
@@ -21,4 +21,8 @@ class BrokerClient(ABC):
 
     @abstractmethod
     def post_orders(self, orders: dy.DataFrame[Orders]) -> None:
+        pass
+
+    @abstractmethod
+    def get_shares(self) -> dy.DataFrame[Shares]:
         pass
