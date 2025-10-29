@@ -1,6 +1,5 @@
 from sf_trader.components.models import Shares
 import dataframely as dy
-import polars as pl
 from sf_trader.config import Config
 from sf_trader.broker.test import TestClient
 import sf_trader.data

@@ -2,7 +2,6 @@ import click
 from pathlib import Path
 
 import sf_trader.portfolio
-import sf_trader.orders
 from sf_trader.config import Config
 
 
