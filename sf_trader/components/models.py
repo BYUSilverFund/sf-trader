@@ -3,7 +3,6 @@ from typing import Callable, List
 
 import dataframely as dy
 import polars as pl
-from sf_quant.optimizer.constraints import Constraint
 
 
 @dataclass
@@ -34,25 +33,7 @@ class SignalCombinator:
         return self.combine_fn(signal_names)
 
 
-@dataclass
-class Config:
-    """Trading system configuration"""
-
-    # Universe
-    ignore_tickers: list[str]
-
-    # Signals
-    signals: list[Signal]
-    ic: float
-    signal_combinator: SignalCombinator
-
-    # Portfolio optimization
-    constraints: list[Constraint]
-    gamma: float
-    decimal_places: int
-
-
-class AssetData(dy.Schema):
+class Assets(dy.Schema):
     date = dy.Date(nullable=False)
     barrid = dy.String(nullable=False)
     ticker = dy.String(nullable=False)

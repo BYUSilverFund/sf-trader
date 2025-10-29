@@ -3,43 +3,49 @@ import polars as pl
 from sf_trader.components.models import Signal
 
 
-momentum = Signal(
-    name="momentum",
-    expr=(
-        pl.col("return")
-        .log1p()
-        .rolling_sum(window_size=230)
-        .shift(22)
-        .over("barrid")
-        .alias("momentum")
-    ),
-    lookback_days=252,
-)
+def momentum() -> Signal:
+    return Signal(
+        name="momentum",
+        expr=(
+            pl.col("return")
+            .log1p()
+            .rolling_sum(window_size=230)
+            .shift(22)
+            .over("barrid")
+            .alias("momentum")
+        ),
+        lookback_days=252,
+    )
 
-reversal = Signal(
-    name="reversal",
-    expr=(
-        pl.col("return")
-        .log1p()
-        .rolling_sum(window_size=22)
-        .mul(-1)
-        .over("barrid")
-        .alias("reversal")
-    ),
-    lookback_days=22,
-)
 
-beta = Signal(
-    name="beta",
-    expr=(pl.col("predicted_beta").mul(-1).over("barrid").alias("beta")),
-    lookback_days=0,
-)
+def reversal() -> Signal:
+    return Signal(
+        name="reversal",
+        expr=(
+            pl.col("return")
+            .log1p()
+            .rolling_sum(window_size=22)
+            .mul(-1)
+            .over("barrid")
+            .alias("reversal")
+        ),
+        lookback_days=22,
+    )
+
+
+def beta() -> Signal:
+    return Signal(
+        name="beta",
+        expr=(pl.col("predicted_beta").mul(-1).over("barrid").alias("beta")),
+        lookback_days=0,
+    )
+
 
 # Registry for easy lookup
 SIGNALS = {
-    "momentum": momentum,
-    "reversal": reversal,
-    "beta": beta,
+    "momentum": momentum(),
+    "reversal": reversal(),
+    "beta": beta(),
 }
 
 
