@@ -13,9 +13,13 @@ class TestClient(BrokerClient):
         self._data_date = data_date
 
     def get_prices(self, tickers: list[str]) -> dy.DataFrame[Prices]:
-        prices = sfd.load_assets_by_date(
-            date_=self._data_date, columns=["ticker", "price"], in_universe=True
-        ).sort("ticker", "price")
+        prices = (
+            sfd.load_assets_by_date(
+                date_=self._data_date, columns=["ticker", "price"], in_universe=True
+            )
+            .sort("ticker", "price")
+            .rename({"ticker": "id"})
+        )
 
         return Prices.validate(prices)
 
@@ -35,7 +39,7 @@ class TestClient(BrokerClient):
     def get_positions(self) -> dy.DataFrame[Shares]:
         shares = pl.DataFrame(
             {
-                "ticker": ["AAPL", "ACAD", "WRBY", "ZG"],
+                "id": ["AAPL", "ACAD", "WRBY", "ZG"],
                 "shares": [10000.0, 10000.0, 10000.0, 10000.0],
             }
         )

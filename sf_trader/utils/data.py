@@ -1,8 +1,9 @@
 import dataframely as dy
 import polars as pl
+import numpy as np
 import sf_quant.data as sfd
 from sf_trader.config import Config
-from sf_trader.components.models import Assets, Betas, Prices
+from sf_trader.components.models import Assets, Betas, Prices, Weights
 import datetime as dt
 
 _config = None
@@ -23,12 +24,19 @@ def get_universe() -> list[str]:
         .to_list()
     )
 
+
 def get_prices(tickers: list[str]) -> dy.DataFrame[Prices]:
-    prices = sfd.load_assets_by_date(
-        date_=_config.data_date, columns=["ticker", "price"], in_universe=True
-    ).filter(pl.col('ticker').is_in(tickers)).sort("ticker", "price")
+    prices = (
+        sfd.load_assets_by_date(
+            date_=_config.data_date, columns=["ticker", "price"], in_universe=True
+        )
+        .filter(pl.col("ticker").is_in(tickers))
+        .rename({"ticker": "id"})
+        .sort("id", "price")
+    )
 
     return Prices.validate(prices)
+
 
 def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
     lookback_days = max([signal.lookback_days for signal in _config.signals])
@@ -65,7 +73,8 @@ def get_betas(tickers: list[str]) -> dy.DataFrame[Betas]:
         )
         .filter(pl.col("ticker").is_in(tickers))
         .sort("barrid")
-        .select("barrid", "predicted_beta")
+        .rename({"barrid": "id"})
+        .select("id", "predicted_beta")
     )
 
     return Betas.validate(betas)
@@ -77,3 +86,19 @@ def get_ticker_barrid_mapping() -> pl.DataFrame:
     )
 
     return mapping
+
+
+def get_benchmark_weights() -> dy.DataFrame[Weights]:
+    return (
+        sfd.load_benchmark(start=_config.data_date, end=_config.data_date)
+        .rename({"barrid": "id"})
+        .sort("id")
+    )
+
+
+def get_covariance_matrix(barrids: list[str]) -> np.ndarray:
+    return (
+        sfd.construct_covariance_matrix(date_=_config.data_date, barrids=barrids)
+        .drop("barrid")
+        .to_numpy()
+    )

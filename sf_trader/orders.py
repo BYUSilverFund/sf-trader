@@ -19,12 +19,10 @@ def get_orders(
     current_shares = broker.get_positions()
 
     # Compute ticker list
-    tickers = list(
-        set(current_shares["ticker"].to_list() + optimal_shares["ticker"].to_list())
-    )
+    ids = list(set(current_shares["id"].to_list() + optimal_shares["id"].to_list()))
 
     # Get live prices
-    prices = broker.get_prices(tickers)
+    prices = broker.get_prices(ids)
 
     # Get order deltas
     orders = sf_trader.utils.functions.get_order_deltas(

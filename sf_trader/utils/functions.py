@@ -19,7 +19,7 @@ def get_tradable_universe(prices: dy.DataFrame[Prices]) -> list[str]:
     return (
         prices.filter(
             pl.col("price").ge(5),
-        )["ticker"]
+        )["id"]
         .unique()
         .sort()
         .to_list()
@@ -59,7 +59,8 @@ def get_alphas(assets: dy.DataFrame[Assets]) -> dy.DataFrame[Alphas]:
         # Get trade date
         .filter(pl.col("date").eq(data_date))
         .select("barrid", "alpha")
-        .sort("barrid")
+        .rename({"barrid": "id"})
+        .sort("id")
     )
 
     return Alphas.validate(alphas)
@@ -71,8 +72,8 @@ def _compute_optimal_weights(
     betas: dy.DataFrame[Betas],
 ) -> pl.DataFrame:
     barrids = sorted(barrids)
-    alphas = alphas.sort("barrid")["alpha"].to_numpy()
-    betas = betas.sort("barrid")["predicted_beta"].to_numpy()
+    alphas = alphas.sort("id")["alpha"].to_numpy()
+    betas = betas.sort("id")["predicted_beta"].to_numpy()
 
     gamma = _config.gamma
     constraints = _config.constraints
@@ -117,14 +118,16 @@ def get_optimal_weights(
         betas=betas,
     )
 
-    weights_re_keyed = weights.join(other=mapping, on="barrid", how="left").select(
-        "ticker", "weight"
+    weights_re_keyed = (
+        weights.join(other=mapping, on="barrid", how="left")
+        .select("ticker", "weight")
+        .rename({"ticker": "id"})
     )
 
     weights_rounded = (
         weights_re_keyed.with_columns(pl.col("weight").round(4))
         .filter(pl.col("weight").ge(1 * 10**-decimal_places))
-        .sort("ticker")
+        .sort("id")
     )
 
     return Weights.validate(weights_rounded)
@@ -134,13 +137,13 @@ def get_optimal_shares(
     weights: dy.DataFrame[Weights], prices: dy.DataFrame[Prices], account_value: float
 ) -> dy.DataFrame[Shares]:
     optimal_shares = (
-        weights.join(prices, on="ticker", how="left")
+        weights.join(prices, on="id", how="left")
         .with_columns(pl.lit(account_value).mul(pl.col("weight")).alias("dollars"))
         .with_columns(
             pl.col("dollars").truediv(pl.col("price")).floor().alias("shares")
         )
         .select(
-            "ticker",
+            "id",
             "shares",
         )
     )
@@ -160,8 +163,8 @@ def get_order_deltas(
     orders = (
         prices
         # Joins
-        .join(current_shares, on="ticker", how="left")
-        .join(optimal_shares, on="ticker", how="left")
+        .join(current_shares, on="id", how="left")
+        .join(optimal_shares, on="id", how="left")
         # Fill nulls with 0
         .with_columns(pl.col("current_shares", "optimal_shares").fill_null(0))
         # Compute share differential
@@ -178,10 +181,10 @@ def get_order_deltas(
         # Absolute value the shares
         .with_columns(pl.col("shares").abs())
         # Select
-        .select("ticker", "price", "shares", "action")
+        .select("id", "price", "shares", "action")
         # Filter
         .filter(
-            pl.col("ticker")
+            pl.col("id")
             .is_in(_config.ignore_tickers)
             .not_(),  # Ignore problematic tickers
             pl.col("shares").ne(0),  # Remove 0 share trades
@@ -189,7 +192,7 @@ def get_order_deltas(
             pl.col("price").is_not_null(),  # Remove unknown prices
         )
         # Sort
-        .sort("ticker")
+        .sort("id")
     )
 
     return Orders.validate(orders)
