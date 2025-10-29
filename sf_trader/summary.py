@@ -30,13 +30,22 @@ def get_weights_from_dollars(
 
     return Weights.validate(weights)
 
+
 def get_re_keyed_weights(weights: dy.DataFrame[Weights]) -> dy.DataFrame[Weights]:
     # Get ticker to barrid mapping
     ticker_to_barrid = sf_trader.utils.data.get_ticker_barrid_mapping()
-    weights = weights.join(ticker_to_barrid, left_on='id', right_on='ticker').select('barrid', 'weight').rename({'barrid': 'id'}).sort('id')
+    weights = (
+        weights.join(ticker_to_barrid, left_on="id", right_on="ticker")
+        .select("barrid", "weight")
+        .rename({"barrid": "id"})
+        .sort("id")
+    )
     return Weights.validate(weights)
 
-def _merge_weights(benchmark: dy.DataFrame[Weights], weights: dy.DataFrame[Weights]) -> pl.DataFrame:
+
+def _merge_weights(
+    benchmark: dy.DataFrame[Weights], weights: dy.DataFrame[Weights]
+) -> pl.DataFrame:
     merge = (
         benchmark.select("id", pl.col("weight").alias("weight_bmk"))
         .join(
@@ -56,12 +65,13 @@ def _merge_weights(benchmark: dy.DataFrame[Weights], weights: dy.DataFrame[Weigh
 
     return merge
 
-def get_active_weights(benchmark: dy.DataFrame[Weights], weights: dy.DataFrame[Weights]) -> dy.DataFrame[Weights]:
+
+def get_active_weights(
+    benchmark: dy.DataFrame[Weights], weights: dy.DataFrame[Weights]
+) -> dy.DataFrame[Weights]:
     merged_weights = _merge_weights(benchmark=benchmark, weights=weights)
-    active_weights = (
-        merged_weights
-        .select('id', 'weight_act')
-        .rename({'weight_act': 'weight'})
+    active_weights = merged_weights.select("id", "weight_act").rename(
+        {"weight_act": "weight"}
     )
     return Weights.validate(active_weights)
 
@@ -101,8 +111,10 @@ def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
     covariance_matrix = sf_trader.utils.data.get_covariance_matrix(barrids=barrids)
 
     # Decompose weights
-    active_weights = get_active_weights(benchmark=benchmark, weights=re_keyed_weights)['weight'].to_numpy()
-    total_weights = weights['weight'].to_numpy()
+    active_weights = get_active_weights(benchmark=benchmark, weights=re_keyed_weights)[
+        "weight"
+    ].to_numpy()
+    total_weights = weights["weight"].to_numpy()
 
     # Compute metrics
     total_dollars_allocated = dollars["dollars"].sum()
