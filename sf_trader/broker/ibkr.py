@@ -37,7 +37,7 @@ class IBKRClient(BrokerClient):
             )
 
             prices_clean = {
-                "id": ticker,
+                "ticker": ticker,
                 "bid": prices_raw.get("price").get(66).get("price"),
                 "ask": prices_raw.get("price").get(67).get("price"),
                 "last": prices_raw.get("price").get(68).get("price"),
@@ -74,7 +74,7 @@ class IBKRClient(BrokerClient):
 
         positions_list = [
             {
-                "id": position.get("contract").symbol,
+                "ticker": position.get("contract").symbol,
                 "shares": float(position.get("position")),
             }
             for position in positions_raw

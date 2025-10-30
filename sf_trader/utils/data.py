@@ -31,8 +31,7 @@ def get_prices(tickers: list[str]) -> dy.DataFrame[Prices]:
             date_=_config.data_date, columns=["ticker", "price"], in_universe=True
         )
         .filter(pl.col("ticker").is_in(tickers))
-        .rename({"ticker": "id"})
-        .sort("id", "price")
+        .sort("ticker", "price")
     )
 
     return Prices.validate(prices)
@@ -73,8 +72,7 @@ def get_betas(tickers: list[str]) -> dy.DataFrame[Betas]:
         )
         .filter(pl.col("ticker").is_in(tickers))
         .sort("barrid")
-        .rename({"barrid": "id"})
-        .select("id", "predicted_beta")
+        .select("barrid", "predicted_beta")
     )
 
     return Betas.validate(betas)
@@ -91,8 +89,7 @@ def get_ticker_barrid_mapping() -> pl.DataFrame:
 def get_benchmark_weights() -> dy.DataFrame[Weights]:
     return (
         sfd.load_benchmark(start=_config.data_date, end=_config.data_date)
-        .rename({"barrid": "id"})
-        .sort("id")
+        .sort("barrid")
     )
 
 

@@ -43,37 +43,37 @@ class Assets(dy.Schema):
 
 
 class Prices(dy.Schema):
-    id = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     price = dy.Float64(nullable=False)
 
 
 class Dollars(dy.Schema):
-    id = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     dollars = dy.Float64(nullable=False)
 
 
 class Shares(dy.Schema):
-    id = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     shares = dy.Float64(nullable=False)
 
 
 class Weights(dy.Schema):
-    id = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     weight = dy.Float64(nullable=False)
 
 
 class Alphas(dy.Schema):
-    id = dy.String(nullable=False)
+    barrid = dy.String(nullable=False)
     alpha = dy.Float64(nullable=False)
 
 
 class Betas(dy.Schema):
-    id = dy.String(nullable=False)
+    barrid = dy.String(nullable=False)
     predicted_beta = dy.Float64(nullable=False)
 
 
 class Orders(dy.Schema):
-    id = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     price = dy.Float64(nullable=False)
     shares = dy.Float64(nullable=False)
     action = dy.String(nullable=False)

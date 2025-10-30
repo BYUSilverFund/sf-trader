@@ -18,7 +18,6 @@ class TestClient(BrokerClient):
                 date_=self._data_date, columns=["ticker", "price"], in_universe=True
             )
             .sort("ticker", "price")
-            .rename({"ticker": "id"})
         )
 
         return Prices.validate(prices)
@@ -39,7 +38,7 @@ class TestClient(BrokerClient):
     def get_positions(self) -> dy.DataFrame[Shares]:
         shares = pl.DataFrame(
             {
-                "id": ["AAPL", "ACAD", "WRBY", "ZG"],
+                "ticker": ["AAPL", "ACAD", "WRBY", "ZG"],
                 "shares": [10000.0, 10000.0, 10000.0, 10000.0],
             }
         )
