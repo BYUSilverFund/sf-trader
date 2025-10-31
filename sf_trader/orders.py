@@ -24,7 +24,9 @@ def get_orders(
     )
 
     # Get live prices
-    prices = broker.get_prices(tickers=tickers)
+    prices = sf_trader.utils.data.get_prices(
+        tickers=tickers
+    )  # TODO: Change for live prices?
 
     # Get order deltas
     orders = sf_trader.utils.functions.get_order_deltas(

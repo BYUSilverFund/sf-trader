@@ -9,11 +9,12 @@ constraints:
 - long-only
 - no-buying-on-margin
 - unit-beta
-gamma: 500
+gamma: 350
 decimal-places: 4
+data-date: 2025-10-30
 ignore-tickers:
 - MONDQ
 - VELO
 - BGXXQ
 - PSTX.CVR
-broker: test
+broker: ibkr

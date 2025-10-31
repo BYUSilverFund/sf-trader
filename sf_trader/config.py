@@ -3,7 +3,6 @@ from sf_trader.components.combinators import get_combinator
 from sf_trader.components.constraints import get_constraint
 from sf_trader.broker import get_broker
 
-import datetime as dt
 import yaml
 
 
@@ -72,7 +71,12 @@ class Config:
             )
 
         # Get data date
-        self.data_date = dt.date(2025, 10, 21)
+        try:
+            self.data_date = raw_config.get("data-date")
+            if not self.data_date:
+                raise ConfigError("'data-date' is required")
+        except ValueError as e:
+            raise ConfigError(f"Invalid data-date format (expected YYYY-MM-DD): {e}")
 
         # Get broker
         broker_name = raw_config.get("broker")

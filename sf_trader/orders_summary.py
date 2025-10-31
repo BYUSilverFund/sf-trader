@@ -51,6 +51,8 @@ def get_orders_summary(
     console.print()
     console.print(top_active_orders_table)
 
+    del config.broker
+
 
 def get_top_long_orders(
     shares: dy.DataFrame[Shares],
