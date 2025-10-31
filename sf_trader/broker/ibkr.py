@@ -66,18 +66,29 @@ class IBKRClient(BrokerClient):
 
     def post_orders(self, orders: dy.DataFrame[Orders]) -> None:
         for order_ in orders.to_dicts():
-            contract = Contract()
-            contract.symbol = order_.get("ticker")
-            contract.secType = "STK"
-            contract.exchange = "SMART"
-            contract.currency = "USD"
+            try:
+                contract = Contract()
+                contract.symbol = order_.get("ticker")
+                contract.secType = "STK"
+                contract.exchange = "SMART"
+                contract.currency = "USD"
 
-            order = Order()
-            order.action = order_.get("action")
-            order.orderType = "MKT"
-            order.totalQuantity = order_.get("shares")
+                order = Order()
+                order.action = order_.get("action")
+                order.orderType = "MKT"
+                order.totalQuantity = order_.get("shares")
 
-            self._app.place_order_sync(contract, order)
+                self._app.place_order_sync(contract, order)
+
+                print(f"✓ {order_.get('ticker')}: {order_.get('action')} {order_.get('shares')} @ MKT")
+            except Exception as e:
+                error_msg = str(e)
+                if "No security definition" in error_msg or "200" in error_msg:
+                    print(f"⚠ Skipping {order_.get('ticker')}: Security not found")
+                else:
+                    print(f"✗ Error placing order for {order_.get('ticker')}: {error_msg}")
+
+            time.sleep(0.1)
 
     def get_positions(self) -> dy.DataFrame[Shares]:
         positions_summary: dict[str, list[dict]] = self._app.get_positions()
