@@ -78,7 +78,9 @@ class IBKRClient(BrokerClient):
         for order_ in orders.to_dicts():
             try:
                 contract = Contract()
-                contract.symbol = self._convert_ticker_to_ibkr_format(order_.get("ticker"))
+                contract.symbol = self._convert_ticker_to_ibkr_format(
+                    order_.get("ticker")
+                )
                 contract.secType = "STK"
                 contract.exchange = "SMART"
                 contract.currency = "USD"
@@ -90,13 +92,17 @@ class IBKRClient(BrokerClient):
 
                 self._app.place_order_sync(contract, order)
 
-                print(f"✓ {order_.get('ticker')}: {order_.get('action')} {order_.get('shares')} @ MKT")
+                print(
+                    f"✓ {order_.get('ticker')}: {order_.get('action')} {order_.get('shares')} @ MKT"
+                )
             except Exception as e:
                 error_msg = str(e)
                 if "No security definition" in error_msg or "200" in error_msg:
                     print(f"⚠ Skipping {order_.get('ticker')}: Security not found")
                 else:
-                    print(f"✗ Error placing order for {order_.get('ticker')}: {error_msg}")
+                    print(
+                        f"✗ Error placing order for {order_.get('ticker')}: {error_msg}"
+                    )
 
             time.sleep(0.1)
 
@@ -107,7 +113,9 @@ class IBKRClient(BrokerClient):
 
         positions_list = [
             {
-                "ticker": self._convert_ticker_from_ibkr_format(position.get("contract").symbol),
+                "ticker": self._convert_ticker_from_ibkr_format(
+                    position.get("contract").symbol
+                ),
                 "shares": float(position.get("position")),
             }
             for position in positions_raw
