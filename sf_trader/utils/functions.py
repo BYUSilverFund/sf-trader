@@ -1,11 +1,10 @@
 from sf_trader.components.models import Shares
 import dataframely as dy
 import polars as pl
-import sf_quant.data as sfd
 from sf_trader.config import Config
 from sf_trader.components.models import Prices, Assets, Alphas, Betas, Weights, Orders
 import sf_quant.optimizer as sfo
-import sf_trader.utils.data
+import numpy as np
 
 _config = None
 
@@ -33,7 +32,7 @@ def get_alphas(assets: dy.DataFrame[Assets]) -> dy.DataFrame[Alphas]:
     data_date = _config.data_date
 
     alphas = (
-        assets.sort("barrid", "date")
+        assets.sort("ticker", "date")
         # Compute signals
         .with_columns([signal.expr for signal in signals])
         # Compute scores
@@ -58,72 +57,40 @@ def get_alphas(assets: dy.DataFrame[Assets]) -> dy.DataFrame[Alphas]:
         .with_columns(signal_combinator.combine_fn([signal.name for signal in signals]))
         # Get trade date
         .filter(pl.col("date").eq(data_date))
-        .select("barrid", "alpha")
-        .sort("barrid")
+        .select("ticker", "alpha")
+        .sort("ticker")
     )
 
     return Alphas.validate(alphas)
-
-
-def _compute_optimal_weights(
-    barrids: list[str],
-    alphas: dy.DataFrame[Alphas],
-    betas: dy.DataFrame[Betas],
-) -> pl.DataFrame:
-    barrids = sorted(barrids)
-    alphas = alphas.sort("barrid")["alpha"].to_numpy()
-    betas = betas.sort("barrid")["predicted_beta"].to_numpy()
-
-    gamma = _config.gamma
-    constraints = _config.constraints
-    data_date = _config.data_date
-
-    covariance_matrix = (
-        sfd.construct_covariance_matrix(date_=data_date, barrids=barrids)
-        .drop("barrid")
-        .to_numpy()
-    )
-
-    return sfo.mve_optimizer(
-        ids=barrids,
-        alphas=alphas,
-        betas=betas,
-        covariance_matrix=covariance_matrix,
-        gamma=gamma,
-        constraints=constraints,
-    )
 
 
 def get_optimal_weights(
     tickers: list[str],
     alphas: dy.DataFrame[Alphas],
     betas: dy.DataFrame[Betas],
+    covariance_matrix: np.ndarray,
 ) -> dy.DataFrame[Weights]:
     decimal_places = _config.decimal_places
 
-    mapping = sf_trader.utils.data.get_ticker_barrid_mapping()
-    barrids = (
-        mapping.join(other=pl.DataFrame({"ticker": tickers}), how="inner", on="ticker")[
-            "barrid"
-        ]
-        .unique()
-        .sort()
-        .to_list()
-    )
+    tickers = sorted(tickers)
+    alphas = alphas.sort("ticker")["alpha"].to_numpy()
+    betas = betas.sort("ticker")["predicted_beta"].to_numpy()
 
-    weights = _compute_optimal_weights(
-        barrids=barrids,
+    gamma = _config.gamma
+    constraints = _config.constraints
+
+    weights = sfo.mve_optimizer(
+        ids=tickers,
         alphas=alphas,
         betas=betas,
-    )
-
-    weights_re_keyed = (
-        weights.join(other=mapping, on="barrid", how="left")
-        .select("ticker", "weight")
+        covariance_matrix=covariance_matrix,
+        constraints=constraints,
+        gamma=gamma,
     )
 
     weights_rounded = (
-        weights_re_keyed.with_columns(pl.col("weight").round(4))
+        weights.rename({"barrid": "ticker"})
+        .with_columns(pl.col("weight").round(4))
         .filter(pl.col("weight").ge(1 * 10**-decimal_places))
         .sort("ticker")
     )

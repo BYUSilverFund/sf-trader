@@ -44,7 +44,6 @@ def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
 
     columns = [
         "date",
-        "barrid",
         "ticker",
         "return",
         "predicted_beta",
@@ -57,7 +56,7 @@ def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
         )
         .with_columns(pl.col("return").truediv(100))
         .filter(pl.col("ticker").is_in(tickers))
-        .sort("barrid", "date")
+        .sort("ticker", "date")
     )
 
     return Assets.validate(asset_data)
@@ -67,12 +66,11 @@ def get_betas(tickers: list[str]) -> dy.DataFrame[Betas]:
     betas = (
         sfd.load_assets_by_date(
             date_=_config.data_date,
-            columns=["barrid", "ticker", "predicted_beta"],
+            columns=["ticker", "predicted_beta"],
             in_universe=True,
         )
         .filter(pl.col("ticker").is_in(tickers))
-        .sort("barrid")
-        .select("barrid", "predicted_beta")
+        .sort("ticker")
     )
 
     return Betas.validate(betas)
@@ -88,14 +86,39 @@ def get_ticker_barrid_mapping() -> pl.DataFrame:
 
 def get_benchmark_weights() -> dy.DataFrame[Weights]:
     return (
-        sfd.load_benchmark(start=_config.data_date, end=_config.data_date)
-        .sort("barrid")
+        sfd.load_assets(
+            start=_config.data_date,
+            end=_config.data_date,
+            in_universe=True,
+            columns=["date", "ticker", "market_cap"],
+        )
+        .select(
+            "ticker",
+            pl.col("market_cap")
+            .truediv(pl.col("market_cap").sum())
+            .over("date")
+            .alias("weight"),
+        )
+        .sort("ticker")
     )
 
 
-def get_covariance_matrix(barrids: list[str]) -> np.ndarray:
+def get_covariance_matrix(tickers: list[str]) -> np.ndarray:
+    ids = (
+        get_ticker_barrid_mapping()
+        .join(pl.DataFrame({"ticker": tickers}), on="ticker", how="inner")
+        .sort("ticker")
+    )
+    tickers_ = ids["ticker"].to_list()
+    barrids = ids["barrid"].to_list()
+
+    mapping = {barrid: ticker for barrid, ticker in zip(barrids, tickers_)}
+
     return (
         sfd.construct_covariance_matrix(date_=_config.data_date, barrids=barrids)
-        .drop("barrid")
+        .with_columns(pl.col("barrid").replace(mapping))
+        .rename(mapping | {"barrid": "ticker"})
+        .sort("ticker")
+        .drop("ticker")
         .to_numpy()
     )

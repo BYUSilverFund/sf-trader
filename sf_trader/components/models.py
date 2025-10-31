@@ -35,7 +35,6 @@ class SignalCombinator:
 
 class Assets(dy.Schema):
     date = dy.Date(nullable=False)
-    barrid = dy.String(nullable=False)
     ticker = dy.String(nullable=False)
     return_ = dy.Float64(nullable=False, alias="return")
     predicted_beta = dy.Float64(nullable=True)
@@ -63,12 +62,12 @@ class Weights(dy.Schema):
 
 
 class Alphas(dy.Schema):
-    barrid = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     alpha = dy.Float64(nullable=False)
 
 
 class Betas(dy.Schema):
-    barrid = dy.String(nullable=False)
+    ticker = dy.String(nullable=False)
     predicted_beta = dy.Float64(nullable=False)
 
 

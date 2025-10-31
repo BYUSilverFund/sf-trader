@@ -34,11 +34,17 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     # Get betas
     betas = sf_trader.utils.data.get_betas(tickers=tradable_universe)
 
+    # Get covariance matrix
+    covariance_matrix = sf_trader.utils.data.get_covariance_matrix(
+        tickers=tradable_universe
+    )
+
     # Get optimal weights
     optimal_weights = sf_trader.utils.functions.get_optimal_weights(
         tickers=tradable_universe,
         alphas=alphas,
         betas=betas,
+        covariance_matrix=covariance_matrix,
     )
 
     # Get optimal shares
