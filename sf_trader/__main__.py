@@ -5,7 +5,7 @@ import polars as pl
 
 import sf_trader.portfolio
 import sf_trader.orders
-import sf_trader.summary
+import sf_trader.portfolio_summary
 from sf_trader.config import Config
 from sf_trader.components.models import Orders, Shares
 
@@ -84,7 +84,7 @@ def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
 def get_portfolio_summary(config_path: Path, portfolio_path: Path):
     config = Config(config_path)
     portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    sf_trader.summary.get_portfolio_summary(shares=portfolio, config=config)
+    sf_trader.portfolio_summary.get_portfolio_summary(shares=portfolio, config=config)
 
 
 @cli.command()
