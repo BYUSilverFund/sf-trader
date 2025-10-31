@@ -21,3 +21,7 @@ class BrokerClient(ABC):
     @abstractmethod
     def get_positions(self) -> dy.DataFrame[Shares]:
         pass
+
+    @abstractmethod
+    def cancel_orders(self) -> None:
+        pass

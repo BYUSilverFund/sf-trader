@@ -19,12 +19,22 @@ class IBKRClient(BrokerClient):
         else:
             print("Connected to TWS")
 
+    @staticmethod
+    def _convert_ticker_to_ibkr_format(ticker: str) -> str:
+        """Convert ticker format from BRK.B to BRK B for IBKR API."""
+        return ticker.replace(".", " ")
+
+    @staticmethod
+    def _convert_ticker_from_ibkr_format(ticker: str) -> str:
+        """Convert ticker format from BRK B to BRK.B from IBKR API."""
+        return ticker.replace(" ", ".")
+
     def get_prices(self, tickers: list[str]) -> dy.DataFrame[Prices]:
         prices_list = []
 
         for ticker in tqdm(tickers, desc="Fetching prices", disable=True):
             contract = Contract()
-            contract.symbol = ticker
+            contract.symbol = self._convert_ticker_to_ibkr_format(ticker)
             contract.secType = "STK"
             contract.exchange = "SMART"
             # contract.primaryExchange = "ISLAND"
@@ -68,7 +78,7 @@ class IBKRClient(BrokerClient):
         for order_ in orders.to_dicts():
             try:
                 contract = Contract()
-                contract.symbol = order_.get("ticker")
+                contract.symbol = self._convert_ticker_to_ibkr_format(order_.get("ticker"))
                 contract.secType = "STK"
                 contract.exchange = "SMART"
                 contract.currency = "USD"
@@ -97,7 +107,7 @@ class IBKRClient(BrokerClient):
 
         positions_list = [
             {
-                "ticker": position.get("contract").symbol,
+                "ticker": self._convert_ticker_from_ibkr_format(position.get("contract").symbol),
                 "shares": float(position.get("position")),
             }
             for position in positions_raw
@@ -106,6 +116,38 @@ class IBKRClient(BrokerClient):
         positions = pl.DataFrame(positions_list)
 
         return Shares.validate(positions)
+
+    def cancel_orders(self) -> None:
+        try:
+            # Get all open orders
+            open_orders = self._app.get_open_orders()
+
+            if not open_orders:
+                print("No open orders to cancel")
+                return
+
+            print(f"Found {len(open_orders)} open order(s)")
+
+            # Cancel each order individually
+            cancelled_count = 0
+            for order_id, order_data in open_orders.items():
+                try:
+                    self._app.cancelOrder(order_id)
+                    ticker = self._convert_ticker_from_ibkr_format(
+                        order_data.get("contract").symbol
+                    )
+                    action = order_data.get("order").action
+                    quantity = order_data.get("order").totalQuantity
+                    print(f"✓ Cancelled order {order_id}: {ticker} {action} {quantity}")
+                    cancelled_count += 1
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(f"✗ Error cancelling order {order_id}: {str(e)}")
+
+            print(f"✓ Cancelled {cancelled_count}/{len(open_orders)} order(s)")
+
+        except Exception as e:
+            print(f"✗ Error getting open orders: {str(e)}")
 
     def __del__(self) -> None:
         self._app.disconnect_and_stop()

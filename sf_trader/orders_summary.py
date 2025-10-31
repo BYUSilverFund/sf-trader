@@ -36,12 +36,20 @@ def get_orders_summary(
         orders=top_long_orders, title="Top 10 Long Position Orders"
     )
 
-    # Get top 10 non-HOLD orders by dollar value
-    top_active_orders = get_top_active_orders(
-        shares=shares, orders=orders, prices=prices, top_n=10
+    # Get top 10 active BUY orders by dollar value
+    top_active_buy_orders = get_top_active_orders(
+        shares=shares, orders=orders, prices=prices, action="BUY", top_n=10
     )
-    top_active_orders_table = sf_trader.ui.tables.generate_orders_table(
-        orders=top_active_orders, title="Top 10 Active Orders by Dollar Value"
+    top_active_buy_orders_table = sf_trader.ui.tables.generate_orders_table(
+        orders=top_active_buy_orders, title="Top 10 Active BUY Orders by Dollar Value"
+    )
+
+    # Get top 10 active SELL orders by dollar value
+    top_active_sell_orders = get_top_active_orders(
+        shares=shares, orders=orders, prices=prices, action="SELL", top_n=10
+    )
+    top_active_sell_orders_table = sf_trader.ui.tables.generate_orders_table(
+        orders=top_active_sell_orders, title="Top 10 Active SELL Orders by Dollar Value"
     )
 
     # Render UI
@@ -49,7 +57,9 @@ def get_orders_summary(
     console.print()
     console.print(top_long_orders_table)
     console.print()
-    console.print(top_active_orders_table)
+    console.print(top_active_buy_orders_table)
+    console.print()
+    console.print(top_active_sell_orders_table)
 
     del config.broker
 
@@ -85,6 +95,7 @@ def get_top_active_orders(
     shares: dy.DataFrame[Shares],
     orders: dy.DataFrame[Orders],
     prices: dy.DataFrame[Prices],
+    action: str,
     top_n: int = 10,
 ) -> pl.DataFrame:
     active_orders = (
@@ -100,8 +111,7 @@ def get_top_active_orders(
             pl.col("to_trade").fill_null(0),
         )
         .filter(
-            pl.col("shares") > 0,  # Only long positions
-            pl.col("action").ne("HOLD"),  # Only active positions
+            pl.col("action").eq(action),  # Filter by specific action (BUY or SELL)
         )
         .sort("dollars", descending=True)
         .head(top_n)

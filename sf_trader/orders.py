@@ -46,3 +46,17 @@ def post_orders(orders: dy.DataFrame[Orders], config: Config) -> None:
 
     # Execute trades
     broker.post_orders(orders=orders)
+
+    del broker
+    del config.broker
+
+
+def cancel_orders(config: Config) -> None:
+    # Connect to broker
+    broker = config.broker
+
+    # Cancel all open orders
+    broker.cancel_orders()
+
+    del broker
+    del config.broker

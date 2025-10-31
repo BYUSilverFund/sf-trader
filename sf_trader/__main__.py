@@ -140,5 +140,18 @@ def post_orders(config_path: Path, orders_path: Path):
     sf_trader.orders.post_orders(orders=orders, config=config)
 
 
+@cli.command()
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+def cancel_orders(config_path: Path):
+    config = Config(config_path)
+    sf_trader.orders.cancel_orders(config=config)
+
+
 if __name__ == "__main__":
     cli()
