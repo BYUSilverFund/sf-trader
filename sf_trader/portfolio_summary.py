@@ -6,6 +6,7 @@ from rich.console import Console
 import sf_trader.ui.tables
 import sf_trader.utils.functions
 
+
 def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
     # Connect to broker
     broker = config.broker
@@ -24,10 +25,12 @@ def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
 
     # Get dollars
     dollars = sf_trader.utils.functions.get_dollars(shares=shares, prices=prices)
-    dollars_allocated = dollars['dollars'].sum()
+    dollars_allocated = dollars["dollars"].sum()
 
     # Calculate portfolio weights from dollars
-    weights = sf_trader.utils.functions.get_weights_from_dollars(dollars=dollars, account_value=account_value)
+    weights = sf_trader.utils.functions.get_weights_from_dollars(
+        dollars=dollars, account_value=account_value
+    )
 
     # Get benchmark weights
     benchmark = sf_trader.utils.data.get_benchmark_weights()
@@ -49,9 +52,11 @@ def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
         active_weights=active_weights,
         covariance_matrix=covariance_matrix,
         account_value=account_value,
-        dollars_allocated=dollars_allocated
+        dollars_allocated=dollars_allocated,
     )
-    portfolio_metrics_table = sf_trader.ui.tables.generate_portfolio_metrics_table(portfolio_metrics)
+    portfolio_metrics_table = sf_trader.ui.tables.generate_portfolio_metrics_table(
+        portfolio_metrics
+    )
 
     # Generate top long positiosn table
     top_long_positions = sf_trader.utils.functions.get_top_long_positions(
@@ -62,7 +67,9 @@ def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
         benchmark=benchmark,
         account_value=account_value,
     )
-    top_long_positions_table = sf_trader.ui.tables.generate_positions_table(positions=top_long_positions, title='Top 10 Long Positions')
+    top_long_positions_table = sf_trader.ui.tables.generate_positions_table(
+        positions=top_long_positions, title="Top 10 Long Positions"
+    )
 
     # Render UI
     console = Console()

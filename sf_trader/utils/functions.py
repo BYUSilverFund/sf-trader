@@ -2,7 +2,16 @@ from sf_trader.components.models import Shares
 import dataframely as dy
 import polars as pl
 from sf_trader.config import Config
-from sf_trader.components.models import Prices, Assets, Alphas, Betas, Weights, Orders, Dollars, PortfolioMetrics
+from sf_trader.components.models import (
+    Prices,
+    Assets,
+    Alphas,
+    Betas,
+    Weights,
+    Orders,
+    Dollars,
+    PortfolioMetrics,
+)
 import sf_quant.optimizer as sfo
 import numpy as np
 
@@ -211,7 +220,14 @@ def decompose_weights(
 
     return total_weights, active_weights
 
-def get_portfolio_metrics(total_weights: np.ndarray, active_weights: np.ndarray, covariance_matrix: np.ndarray, account_value: float, dollars_allocated: float) -> PortfolioMetrics:
+
+def get_portfolio_metrics(
+    total_weights: np.ndarray,
+    active_weights: np.ndarray,
+    covariance_matrix: np.ndarray,
+    account_value: float,
+    dollars_allocated: float,
+) -> PortfolioMetrics:
     # Compute metrics
     gross_exposure = np.sum(np.abs(total_weights))
     net_exposure = np.sum(total_weights)
@@ -232,8 +248,9 @@ def get_portfolio_metrics(total_weights: np.ndarray, active_weights: np.ndarray,
         total_risk=total_risk,
         utilization=utilization,
         account_value=account_value,
-        dollars_allocated=dollars_allocated
+        dollars_allocated=dollars_allocated,
     )
+
 
 def get_top_long_positions(
     shares: dy.DataFrame[Shares],
@@ -267,7 +284,16 @@ def get_top_long_positions(
         .filter(pl.col("dollars") > 0)  # Only long positions
         .sort("dollars", descending=True)
         .head(top_n)
-        .select("ticker", "shares", "price", "dollars", "weight", "weight_bmk", "weight_act", "pct_chg_bmk")
+        .select(
+            "ticker",
+            "shares",
+            "price",
+            "dollars",
+            "weight",
+            "weight_bmk",
+            "weight_act",
+            "pct_chg_bmk",
+        )
     )
 
     return positions

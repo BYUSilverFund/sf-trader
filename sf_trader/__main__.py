@@ -6,6 +6,7 @@ import polars as pl
 import sf_trader.portfolio
 import sf_trader.orders
 import sf_trader.portfolio_summary
+import sf_trader.orders_summary
 from sf_trader.config import Config
 from sf_trader.components.models import Orders, Shares
 
@@ -96,7 +97,39 @@ def get_portfolio_summary(config_path: Path, portfolio_path: Path):
     help="Path to configuration file",
 )
 @click.option(
+    "--portfolio-path",
+    "-p",
+    type=click.Path(exists=True, path_type=Path),
+    default="portfolio.csv",
+    help="Path to portfolio file",
+)
+@click.option(
     "--orders-path",
+    "-o",
+    type=click.Path(exists=True, path_type=Path),
+    default="orders.csv",
+    help="Path to orders file",
+)
+def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Path):
+    config = Config(config_path)
+    orders = Orders.validate(pl.read_csv(orders_path))
+    portfolio = Shares.validate(pl.read_csv(portfolio_path))
+    sf_trader.orders_summary.get_orders_summary(
+        shares=portfolio, orders=orders, config=config
+    )
+
+
+@cli.command()
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+@click.option(
+    "--orders-path",
+    "-o",
     type=click.Path(exists=True, path_type=Path),
     default="orders.csv",
     help="Path to orders file.",

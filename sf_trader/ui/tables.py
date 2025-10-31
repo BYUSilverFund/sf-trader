@@ -2,6 +2,7 @@ import polars as pl
 from sf_trader.components.models import PortfolioMetrics
 from rich.table import Table
 
+
 def generate_portfolio_metrics_table(metrics: PortfolioMetrics) -> Table:
     # Create metrics table
     table = Table(title="[bold cyan]Portfolio Metrics[/bold cyan]", padding=(0, 2))
@@ -21,7 +22,10 @@ def generate_portfolio_metrics_table(metrics: PortfolioMetrics) -> Table:
 
     return table
 
-def generate_positions_table(positions: pl.DataFrame, title: str = "Top Long Positions") -> Table:
+
+def generate_positions_table(
+    positions: pl.DataFrame, title: str = "Top Long Positions"
+) -> Table:
     table = Table(title=f"[bold cyan]{title}[/bold cyan]", padding=(0, 2))
 
     # Add columns
@@ -36,7 +40,9 @@ def generate_positions_table(positions: pl.DataFrame, title: str = "Top Long Pos
 
     # Add rows
     for row in positions.iter_rows(named=True):
-        pct_chg = f"{row['pct_chg_bmk']:.1f}%" if row['pct_chg_bmk'] is not None else "N/A"
+        pct_chg = (
+            f"{row['pct_chg_bmk']:.1f}%" if row["pct_chg_bmk"] is not None else "N/A"
+        )
         table.add_row(
             row["ticker"],
             f"{row['shares']:,.0f}",
@@ -46,6 +52,40 @@ def generate_positions_table(positions: pl.DataFrame, title: str = "Top Long Pos
             f"{row['weight_bmk']:.2%}",
             f"{row['weight_act']:.2%}",
             pct_chg,
+        )
+
+    return table
+
+
+def generate_orders_table(orders: pl.DataFrame, title: str = "Orders") -> Table:
+    table = Table(title=f"[bold cyan]{title}[/bold cyan]", padding=(0, 2))
+
+    # Add columns
+    table.add_column("Ticker", style="cyan", justify="left")
+    table.add_column("Shares", style="white", justify="right")
+    table.add_column("Price", style="white", justify="right")
+    table.add_column("Dollars", style="bold white", justify="right")
+    table.add_column("To Trade", style="green", justify="right")
+    table.add_column("Action", style="yellow", justify="right")
+
+    # Add rows with conditional styling for action
+    for row in orders.iter_rows(named=True):
+        action = row["action"]
+        # Color code the action
+        if action == "BUY":
+            action_styled = f"[green]{action}[/green]"
+        elif action == "SELL":
+            action_styled = f"[red]{action}[/red]"
+        else:
+            action_styled = f"[yellow]{action}[/yellow]"
+
+        table.add_row(
+            row["ticker"],
+            f"{row['shares']:,.0f}",
+            f"${row['price']:.2f}",
+            f"${row['dollars']:,.0f}",
+            f"{row['to_trade']:,.0f}",
+            action_styled,
         )
 
     return table
