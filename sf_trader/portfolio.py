@@ -13,7 +13,7 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     sf_trader.utils.data.set_config(config=config)
     sf_trader.utils.functions.set_config(config=config)
 
-    # Get tradable universe
+    # Get universe
     universe = sf_trader.utils.data.get_universe()
 
     # Get account value

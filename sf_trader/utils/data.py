@@ -31,7 +31,7 @@ def get_prices(tickers: list[str]) -> dy.DataFrame[Prices]:
             date_=_config.data_date, columns=["ticker", "price"], in_universe=True
         )
         .filter(pl.col("ticker").is_in(tickers))
-        .sort("ticker", "price")
+        .sort("ticker")
     )
 
     return Prices.validate(prices)
@@ -44,6 +44,7 @@ def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
 
     columns = [
         "date",
+        "barrid",
         "ticker",
         "return",
         "predicted_beta",
@@ -111,14 +112,18 @@ def get_covariance_matrix(tickers: list[str]) -> np.ndarray:
     )
     tickers_ = ids["ticker"].to_list()
     barrids = ids["barrid"].to_list()
-
+    sorted_barrids = sorted(barrids)
     mapping = {barrid: ticker for barrid, ticker in zip(barrids, tickers_)}
 
-    return (
-        sfd.construct_covariance_matrix(date_=_config.data_date, barrids=barrids)
+    covariance_matrix = (
+        sfd.construct_covariance_matrix(date_=_config.data_date, barrids=sorted_barrids)
         .with_columns(pl.col("barrid").replace(mapping))
         .rename(mapping | {"barrid": "ticker"})
         .sort("ticker")
-        .drop("ticker")
-        .to_numpy()
     )
+
+    # Sort columns to match row order
+    sorted_tickers = covariance_matrix["ticker"].to_list()
+    covariance_matrix = covariance_matrix.select(["ticker"] + sorted_tickers)
+
+    return covariance_matrix.drop("ticker").to_numpy()

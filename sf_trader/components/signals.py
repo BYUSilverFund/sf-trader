@@ -11,7 +11,7 @@ def momentum() -> Signal:
             .log1p()
             .rolling_sum(window_size=230)
             .shift(22)
-            .over("ticker")
+            .over("barrid")
             .alias("momentum")
         ),
         lookback_days=252,
@@ -26,7 +26,7 @@ def reversal() -> Signal:
             .log1p()
             .rolling_sum(window_size=22)
             .mul(-1)
-            .over("ticker")
+            .over("barrid")
             .alias("reversal")
         ),
         lookback_days=22,
@@ -36,7 +36,7 @@ def reversal() -> Signal:
 def beta() -> Signal:
     return Signal(
         name="beta",
-        expr=(pl.col("predicted_beta").mul(-1).over("ticker").alias("beta")),
+        expr=(pl.col("predicted_beta").mul(-1).over("barrid").alias("beta")),
         lookback_days=0,
     )
 
