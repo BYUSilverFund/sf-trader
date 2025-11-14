@@ -41,6 +41,9 @@ class TestClient(BrokerClient):
         )
 
         return Shares.validate(shares)
+    
+    def cancel_orders(self) -> None:
+        return None
 
 
 def test_client(data_date: dt.date) -> TestClient:

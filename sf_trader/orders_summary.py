@@ -40,7 +40,7 @@ def get_orders_summary(
     top_long_orders = get_top_long_orders(
         shares=combined_shares, prices=prices, orders=orders, top_n=10
     )
-    print(top_long_orders)
+
     top_long_orders_table = sf_trader.ui.tables.generate_orders_table(
         orders=top_long_orders, title="Top 10 Long Position Orders"
     )
@@ -163,6 +163,5 @@ def get_combined_shares(
     ).with_columns(
         pl.col("shares").fill_null(0),
     )
-    print(combined)
 
     return Shares.validate(combined)
