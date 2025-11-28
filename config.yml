@@ -11,10 +11,10 @@ constraints:
 - unit-beta
 gamma: 350
 decimal-places: 4
-data-date: 2025-10-30
+data-date: 2025-11-26
 ignore-tickers:
 - MONDQ
 - VELO
 - BGXXQ
 - PSTX.CVR
-broker: test
+broker: ibkr

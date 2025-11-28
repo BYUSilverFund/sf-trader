@@ -153,5 +153,20 @@ def cancel_orders(config_path: Path):
     sf_trader.orders.cancel_orders(config=config)
 
 
+@cli.command()
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+def get_account_value(config_path: Path):
+    """Get the current account value (net liquidation)"""
+    config = Config(config_path)
+    account_value = config.broker.get_account_value()
+    print(f"Account Value: ${account_value:,.2f}")
+
+
 if __name__ == "__main__":
     cli()

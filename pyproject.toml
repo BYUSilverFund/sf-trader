@@ -3,10 +3,10 @@ name = "sf-trader"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13, <3.14"
 dependencies = [
-    "dataframely>=1.14.0",
-    "sf-quant>=0.1.14",
+    "dataframely>=2.1.0",
+    "sf-quant>=0.1.15",
     "tqdm>=4.67.1",
 ]
 
