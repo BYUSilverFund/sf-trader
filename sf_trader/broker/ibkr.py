@@ -2,7 +2,7 @@ from sf_trader.broker.client import BrokerClient
 import dataframely as dy
 import polars as pl
 from sf_trader.components.models import Prices, Orders, Shares
-from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order
+from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order, OrderCancel
 from ibapi.account_summary_tags import AccountSummaryTags
 from rich import print
 from tqdm import tqdm
@@ -89,6 +89,7 @@ class IBKRClient(BrokerClient):
                 order.action = order_.get("action")
                 order.orderType = "MKT"
                 order.totalQuantity = order_.get("shares")
+                order.tif = 'DAY'
 
                 self._app.place_order_sync(contract, order)
 
@@ -140,7 +141,8 @@ class IBKRClient(BrokerClient):
             cancelled_count = 0
             for order_id, order_data in open_orders.items():
                 try:
-                    self._app.cancelOrder(order_id)
+                    order_cancel = OrderCancel()
+                    self._app.cancel_order_sync(order_id, orderCancel=order_cancel)
                     ticker = self._convert_ticker_from_ibkr_format(
                         order_data.get("contract").symbol
                     )
