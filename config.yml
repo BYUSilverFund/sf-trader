@@ -9,7 +9,7 @@ constraints:
 - long-only
 - no-buying-on-margin
 - unit-beta
-gamma: 350
+gamma: 500
 decimal-places: 4
 data-date: 2025-11-26
 ignore-tickers:
