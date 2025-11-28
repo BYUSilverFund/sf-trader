@@ -68,7 +68,7 @@ python sf_trader get-orders
 
 ```bash
 python sf_trader get-portfolio-summary
-python sf_trader get-orders-summary'
+python sf_trader get-orders-summary
 ```
 
 5. Place orders
