@@ -1,10 +1,10 @@
 import dataframely as dy
 import polars as pl
-from sf_trader.components.models import Orders, Shares, Prices
-from sf_trader.config import Config
+from components.models import Orders, Shares, Prices
+from config import Config
 from rich.console import Console
-import sf_trader.ui.tables
-import sf_trader.utils.data
+import ui.tables
+import utils.data
 
 
 def get_orders_summary(
@@ -19,7 +19,7 @@ def get_orders_summary(
         config: Configuration object
     """
     # Configure modules
-    sf_trader.utils.data.set_config(config=config)
+    utils.data.set_config(config=config)
 
     # Connect to broker and get current positions
     broker = config.broker
@@ -29,7 +29,7 @@ def get_orders_summary(
     tickers = list(set(current_shares["ticker"].to_list() + shares["ticker"].to_list()))
 
     # Get prices for all tickers
-    prices = sf_trader.utils.data.get_prices(tickers=tickers)
+    prices = utils.data.get_prices(tickers=tickers)
 
     # Create combined shares dataframe with both current and optimal shares
     combined_shares = get_combined_shares(
@@ -41,7 +41,7 @@ def get_orders_summary(
         shares=combined_shares, prices=prices, orders=orders, top_n=10
     )
 
-    top_long_orders_table = sf_trader.ui.tables.generate_orders_table(
+    top_long_orders_table = ui.tables.generate_orders_table(
         orders=top_long_orders, title="Top 10 Long Position Orders"
     )
 
@@ -49,7 +49,7 @@ def get_orders_summary(
     top_active_buy_orders = get_top_active_orders(
         shares=combined_shares, orders=orders, prices=prices, action="BUY", top_n=10
     )
-    top_active_buy_orders_table = sf_trader.ui.tables.generate_orders_table(
+    top_active_buy_orders_table = ui.tables.generate_orders_table(
         orders=top_active_buy_orders, title="Top 10 Active BUY Orders by Dollar Value"
     )
 
@@ -57,7 +57,7 @@ def get_orders_summary(
     top_active_sell_orders = get_top_active_orders(
         shares=combined_shares, orders=orders, prices=prices, action="SELL", top_n=10
     )
-    top_active_sell_orders_table = sf_trader.ui.tables.generate_orders_table(
+    top_active_sell_orders_table = ui.tables.generate_orders_table(
         orders=top_active_sell_orders, title="Top 10 Active SELL Orders by Dollar Value"
     )
 

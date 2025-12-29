@@ -3,12 +3,12 @@ from pathlib import Path
 
 import polars as pl
 
-import sf_trader.portfolio
-import sf_trader.orders
-import sf_trader.portfolio_summary
-import sf_trader.orders_summary
-from sf_trader.config import Config
-from sf_trader.components.models import Orders, Shares
+import portfolio
+import orders
+import portfolio_summary
+import orders_summary
+from config import Config
+from components.models import Orders, Shares
 
 
 @click.group()
@@ -34,8 +34,8 @@ def cli():
 )
 def get_portfolio(config_path: Path, output_file_path: Path):
     config = Config(config_path)
-    portfolio = sf_trader.portfolio.get_portfolio(config)
-    portfolio.write_csv(output_file_path)
+    portfolio_ = portfolio.get_portfolio(config)
+    portfolio_.write_csv(output_file_path)
 
 
 @cli.command()
@@ -62,9 +62,9 @@ def get_portfolio(config_path: Path, output_file_path: Path):
 )
 def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
     config = Config(config_path)
-    portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    orders = sf_trader.orders.get_orders(optimal_shares=portfolio, config=config)
-    orders.write_csv(output_file_path)
+    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
+    orders_ = orders.get_orders(optimal_shares=portfolio_, config=config)
+    orders_.write_csv(output_file_path)
 
 
 @cli.command()
@@ -84,8 +84,8 @@ def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
 )
 def get_portfolio_summary(config_path: Path, portfolio_path: Path):
     config = Config(config_path)
-    portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    sf_trader.portfolio_summary.get_portfolio_summary(shares=portfolio, config=config)
+    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
+    portfolio_summary.get_portfolio_summary(shares=portfolio_, config=config)
 
 
 @cli.command()
@@ -112,10 +112,10 @@ def get_portfolio_summary(config_path: Path, portfolio_path: Path):
 )
 def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Path):
     config = Config(config_path)
-    orders = Orders.validate(pl.read_csv(orders_path))
-    portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    sf_trader.orders_summary.get_orders_summary(
-        shares=portfolio, orders=orders, config=config
+    orders_ = Orders.validate(pl.read_csv(orders_path))
+    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
+    orders_summary.get_orders_summary(
+        shares=portfolio_, orders=orders_, config=config
     )
 
 
@@ -136,8 +136,8 @@ def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Pat
 )
 def post_orders(config_path: Path, orders_path: Path):
     config = Config(config_path)
-    orders = Orders.validate(pl.read_csv(orders_path))
-    sf_trader.orders.post_orders(orders=orders, config=config)
+    orders_ = Orders.validate(pl.read_csv(orders_path))
+    orders.post_orders(orders=orders_, config=config)
 
 
 @cli.command()
@@ -150,7 +150,7 @@ def post_orders(config_path: Path, orders_path: Path):
 )
 def cancel_orders(config_path: Path):
     config = Config(config_path)
-    sf_trader.orders.cancel_orders(config=config)
+    orders.cancel_orders(config=config)
 
 
 @cli.command()

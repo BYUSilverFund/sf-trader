@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import dataframely as dy
 
-from sf_trader.components.models import Prices, Orders, Shares
+from components.models import Prices, Orders, Shares
 
 
 class BrokerClient(ABC):

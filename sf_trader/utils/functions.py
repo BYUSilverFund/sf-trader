@@ -1,8 +1,8 @@
-from sf_trader.components.models import Shares
+from components.models import Shares
 import dataframely as dy
 import polars as pl
-from sf_trader.config import Config
-from sf_trader.components.models import (
+from config import Config
+from components.models import (
     Prices,
     Assets,
     Alphas,

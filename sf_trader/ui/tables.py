@@ -1,5 +1,5 @@
 import polars as pl
-from sf_trader.components.models import PortfolioMetrics
+from components.models import PortfolioMetrics
 from rich.table import Table
 
 

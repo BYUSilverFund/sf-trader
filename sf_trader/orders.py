@@ -1,8 +1,8 @@
-from sf_trader.components.models import Orders, Shares
-from sf_trader.config import Config
+from components.models import Orders, Shares
+from config import Config
 import dataframely as dy
-import sf_trader.utils.data
-import sf_trader.utils.functions
+import utils.data
+import utils.functions
 
 
 def get_orders(
@@ -12,8 +12,8 @@ def get_orders(
     broker = config.broker
 
     # Config data loader
-    sf_trader.utils.data.set_config(config=config)
-    sf_trader.utils.functions.set_config(config=config)
+    utils.data.set_config(config=config)
+    utils.functions.set_config(config=config)
 
     # Get current shares
     current_shares = broker.get_positions()
@@ -24,12 +24,12 @@ def get_orders(
     )
 
     # Get live prices
-    prices = sf_trader.utils.data.get_prices(
+    prices = utils.data.get_prices(
         tickers=tickers
     )  # TODO: Change for live prices?
 
     # Get order deltas
-    orders = sf_trader.utils.functions.get_order_deltas(
+    orders = utils.functions.get_order_deltas(
         current_shares=current_shares, optimal_shares=optimal_shares, prices=prices
     )
 

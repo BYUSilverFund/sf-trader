@@ -1,6 +1,6 @@
 import polars as pl
 
-from sf_trader.components.models import SignalCombinator
+from components.models import SignalCombinator
 
 
 # Define combinators as factory functions

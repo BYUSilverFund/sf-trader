@@ -1,9 +1,9 @@
-from sf_trader.broker.client import BrokerClient
+from broker.client import BrokerClient
 import dataframely as dy
 import polars as pl
 import time
 
-from sf_trader.components.models import Prices, Orders, Shares
+from components.models import Prices, Orders, Shares
 import sf_quant.data as sfd
 import datetime as dt
 

@@ -2,8 +2,8 @@ import dataframely as dy
 import polars as pl
 import numpy as np
 import sf_quant.data as sfd
-from sf_trader.config import Config
-from sf_trader.components.models import Assets, Betas, Prices, Weights
+from config import Config
+from components.models import Assets, Betas, Prices, Weights
 import datetime as dt
 
 _config = None

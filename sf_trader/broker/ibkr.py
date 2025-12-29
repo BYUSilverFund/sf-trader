@@ -1,7 +1,7 @@
-from sf_trader.broker.client import BrokerClient
+from broker.client import BrokerClient
 import dataframely as dy
 import polars as pl
-from sf_trader.components.models import Prices, Orders, Shares
+from components.models import Prices, Orders, Shares
 from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order, OrderCancel
 from ibapi.account_summary_tags import AccountSummaryTags
 from rich import print
