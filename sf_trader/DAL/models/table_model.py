@@ -1,8 +1,14 @@
-import os
-import dotenv
 import polars as pl
 
-dotenv.load_dotenv(override=True)
+from enum import StrEnum
+
+
+class TableName(StrEnum):
+    OPTIMAL_WEIGHTS = "optimal_weights"
+    ASSETS = "assets"
+    BETAS = "betas"
+    PRICES = "prices"
+    WEIGHTS = "weights"
 
 
 class Table:
@@ -10,17 +16,21 @@ class Table:
         self._name = name
         self._base_path = base_path
 
+
     def _file_path(self, year: int | None = None) -> str:
         if year is None:
             return f"{self._base_path}/{self._name}_*.parquet"
         else:
             return f"{self._base_path}/{self._name}_{year}.parquet"
 
+
     def scan(self, year: int | None = None) -> pl.LazyFrame:
         return pl.scan_parquet(self._file_path(year))
 
+
     def read(self, year: int | None = None) -> pl.DataFrame:
         return pl.read_parquet(self._file_path(year))
+
 
     def columns(self) -> pl.DataFrame:
         pl.Config.set_tbl_rows(-1)
@@ -35,5 +45,3 @@ class Table:
         )
         pl.Config.set_tbl_rows(10)
         return df_str
-    
-
