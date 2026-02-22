@@ -3,8 +3,8 @@ from sf_trader.dal.models.table_model import TableName
 from sf_trader.dal.models.schema_models import WeightsDF, WeightsSchema
 
 import polars as pl
-
 import datetime as dt
+
 
 class PortfolioDAO(Database):
     """Data Access Object for portfolio-related operations."""
