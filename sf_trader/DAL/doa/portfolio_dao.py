@@ -24,23 +24,26 @@ class PortfolioDAO(Database):
             pl.col('date').eq(date)
         )
         .select('ticker', 'weight')
+        .sort("ticker")
         .collect()
         )
 
         return WeightsSchema.validate(weights)
     
-    
-    def get_prices_by_date(self, date: dt.date) -> PricesDF:
+
+    def get_prices_by_date(self, date: dt.date, tickers: list[str]) -> PricesDF:
         """Read prices for a given date."""
 
-        prices_table = self.get_table(TableName.PRICES)
+        prices_table = self.get_table(TableName.ASSETS)
         prices = (prices_table.scan(
             year=date.year
         )
         .filter(
-            pl.col('date').eq(date)
+            pl.col('date').eq(date),
+            pl.col("ticker").is_in(tickers)
         )
         .select('ticker', 'price')
+        .sort("ticker")
         .collect()
         )
 
