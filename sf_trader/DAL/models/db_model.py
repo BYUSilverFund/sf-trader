@@ -16,7 +16,7 @@ class Database:
 
     def __run_connection_test(self) -> bool:
         if not self.is_connected():
-            raise ConnectionError("Database connection failed: Base path is not set or does not exist.")
+            raise ConnectionError(f"Database connection failed: Base path: '{self.base_path}' is not set or does not exist.")
         return True
 
 
