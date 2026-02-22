@@ -1,13 +1,30 @@
-from sf_trader.dal.models import table_model
+from sf_trader.dal.models.db_model import Database
+from sf_trader.dal.models.table_model import TableName
+from sf_trader.dal.models.schema_models import WeightsDF, WeightsSchema
 
-class PortfolioDAO:
-    def __init__(self, db):
-        self.db = db
+import polars as pl
 
-    def get_portfolio(self, user_id):
-        # Placeholder for fetching portfolio data from the database
-        return self.db.fetch_portfolio(user_id)
+import datetime as dt
 
-    def update_portfolio(self, user_id, portfolio_data):
-        # Placeholder for updating portfolio data in the database
-        self.db.update_portfolio(user_id, portfolio_data)
+class PortfolioDAO(Database):
+    """Data Access Object for portfolio-related operations."""
+
+    def __init__(self):
+        super().__init__()
+
+
+    def get_optimal_weights_by_date(self, date: dt.date) -> WeightsDF:
+        """Read optimal weights for a given date."""
+
+        optimal_weights_table = self.get_table(TableName.OPTIMAL_WEIGHTS)
+        weights = (optimal_weights_table.scan(
+            year=date.year
+        )
+        .filter(
+            pl.col('date').eq(date)
+        )
+        .select('ticker', 'weight')
+        .collect()
+        )
+
+        return WeightsSchema.validate(weights)

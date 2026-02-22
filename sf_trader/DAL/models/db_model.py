@@ -6,15 +6,10 @@ from .table_model import Table, TableName
 
 class Database:
     def __init__(self):
-        self.base_path = None
-
-
-    def connect(self): 
         dotenv.load_dotenv(override=True)
-        
         self.base_path = os.getenv("DATABASE_PATH")
 
-    
+
     def is_connected(self) -> bool:
         return self.base_path is not None and os.path.exists(self.base_path)
     
