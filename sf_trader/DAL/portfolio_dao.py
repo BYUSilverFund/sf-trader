@@ -1,3 +1,5 @@
+from sf_trader.dal.models import table_model
+
 class PortfolioDAO:
     def __init__(self, db):
         self.db = db

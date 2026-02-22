@@ -35,3 +35,5 @@ class Table:
         )
         pl.Config.set_tbl_rows(10)
         return df_str
+    
+
