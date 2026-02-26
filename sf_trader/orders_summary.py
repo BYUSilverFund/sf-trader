@@ -3,7 +3,7 @@ import polars as pl
 from sf_trader.components.models import Orders, Shares, Prices
 from sf_trader.config import Config
 from rich.console import Console
-import sf_trader.ui.tables
+import sf_trader.domain.tables_ui
 import sf_trader.utils.data
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
@@ -46,7 +46,7 @@ def get_orders_summary(
         shares=combined_shares, prices=prices, orders=orders, top_n=10
     )
 
-    top_long_orders_table = sf_trader.ui.tables.generate_orders_table(
+    top_long_orders_table = sf_trader.domain.tables_ui.generate_orders_table(
         orders=top_long_orders, title="Top 10 Long Position Orders"
     )
 
@@ -54,7 +54,7 @@ def get_orders_summary(
     top_active_buy_orders = get_top_active_orders(
         shares=combined_shares, orders=orders, prices=prices, action="BUY", top_n=10
     )
-    top_active_buy_orders_table = sf_trader.ui.tables.generate_orders_table(
+    top_active_buy_orders_table = sf_trader.domain.tables_ui.generate_orders_table(
         orders=top_active_buy_orders, title="Top 10 Active BUY Orders by Dollar Value"
     )
 
@@ -62,7 +62,7 @@ def get_orders_summary(
     top_active_sell_orders = get_top_active_orders(
         shares=combined_shares, orders=orders, prices=prices, action="SELL", top_n=10
     )
-    top_active_sell_orders_table = sf_trader.ui.tables.generate_orders_table(
+    top_active_sell_orders_table = sf_trader.domain.tables_ui.generate_orders_table(
         orders=top_active_sell_orders, title="Top 10 Active SELL Orders by Dollar Value"
     )
 

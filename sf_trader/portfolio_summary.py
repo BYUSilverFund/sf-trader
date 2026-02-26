@@ -1,9 +1,7 @@
-import dataframely as dy
 from sf_trader.config import Config
-import sf_trader.utils.data
 from rich.console import Console
-import sf_trader.ui.tables
-import sf_trader.utils.functions
+import sf_trader.domain.tables_ui
+import sf_trader.domain.functions
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 from sf_trader.dal.models.schema_models import SharesDF
@@ -29,16 +27,16 @@ def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
     prices = port_dao.get_prices_by_date(date=config.data_date, tickers=tickers)
 
     # Get dollars
-    dollars = sf_trader.utils.functions.get_dollars(shares=shares, prices=prices)
+    dollars = sf_trader.domain.functions.get_dollars(shares=shares, prices=prices)
     dollars_allocated = dollars["dollars"].sum()
 
     # Calculate portfolio weights from dollars
-    weights = sf_trader.utils.functions.get_weights_from_dollars(
+    weights = sf_trader.domain.functions.get_weights_from_dollars(
         dollars=dollars, account_value=account_value
     )
 
     # Get benchmark weights
-    benchmark = sf_trader.utils.data.get_benchmark_weights()
+    benchmark = port_dao.get_benchmark_weights_by_date(date=config.data_date)
 
     # Get universe
     universe = benchmark["ticker"].sort().to_list()
@@ -47,24 +45,24 @@ def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
     covariance_matrix = sf_trader.utils.data.get_covariance_matrix(tickers=universe)
 
     # Decompose weights
-    total_weights, active_weights = sf_trader.utils.functions.decompose_weights(
+    total_weights, active_weights = sf_trader.domain.functions.decompose_weights(
         benchmark=benchmark, weights=weights
     )
 
     # Generate portfolio metrics table
-    portfolio_metrics = sf_trader.utils.functions.get_portfolio_metrics(
+    portfolio_metrics = sf_trader.domain.functions.get_portfolio_metrics(
         total_weights=total_weights,
         active_weights=active_weights,
         covariance_matrix=covariance_matrix,
         account_value=account_value,
         dollars_allocated=dollars_allocated,
     )
-    portfolio_metrics_table = sf_trader.ui.tables.generate_portfolio_metrics_table(
+    portfolio_metrics_table = sf_trader.domain.tables_ui.generate_portfolio_metrics_table(
         portfolio_metrics
     )
 
     # Generate top long positiosn table
-    top_long_positions = sf_trader.utils.functions.get_top_long_positions(
+    top_long_positions = sf_trader.domain.functions.get_top_long_positions(
         shares=shares,
         prices=prices,
         dollars=dollars,
@@ -72,7 +70,7 @@ def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
         benchmark=benchmark,
         account_value=account_value,
     )
-    top_long_positions_table = sf_trader.ui.tables.generate_positions_table(
+    top_long_positions_table = sf_trader.domain.tables_ui.generate_positions_table(
         positions=top_long_positions, title="Top 10 Long Positions"
     )
 

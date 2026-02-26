@@ -5,6 +5,7 @@ from sf_trader.broker import get_broker
 
 import yaml
 
+_config = None
 
 class ConfigError(Exception):
     """Raised when configuration is invalid"""
@@ -81,3 +82,8 @@ class Config:
         # Get broker
         broker_name = raw_config.get("broker")
         self.broker = get_broker(broker_name, self.data_date)
+
+
+def set_config(config: Config) -> None:
+    global _config
+    _config = config

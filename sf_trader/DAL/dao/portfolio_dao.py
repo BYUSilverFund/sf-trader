@@ -54,7 +54,10 @@ class PortfolioDAO(Database):
         """Read universe tickers for a given date."""
 
         assets_table = self.get_table(TableName.ASSETS)
-        tickers = (assets_table.scan().filter(
+        tickers = (assets_table.scan(
+            year=date.year
+        )
+        .filter(
             pl.col("date").eq(date),
             pl.col('in_universe')
         )
@@ -66,3 +69,29 @@ class PortfolioDAO(Database):
         )
 
         return tickers
+    
+
+    def get_benchmark_weights_by_date(self, date: dt.date) -> WeightsDF:
+        """Read benchmark weights for a given date."""
+
+        assets_table = self.get_table(TableName.ASSETS)
+        
+        weights = (assets_table.scan(
+            year=date.year
+        )
+        .filter(
+            pl.col("date").eq(date),
+            pl.col('in_universe')
+        )
+        .select(
+            "ticker",
+            pl.col("market_cap")
+            .truediv(pl.col("market_cap").sum())
+            .over("date")
+            .alias("weight"),
+        )
+        .sort("ticker")
+        .collect()
+        )
+
+        return WeightsSchema.validate(weights)

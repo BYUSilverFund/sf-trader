@@ -1,6 +1,20 @@
 import polars as pl
-from sf_trader.components.models import PortfolioMetrics
 from rich.table import Table
+from dataclasses import dataclass
+
+
+@dataclass
+class PortfolioMetrics:
+    gross_exposure: float
+    net_exposure: float
+    num_long: int
+    num_short: int
+    num_positions: int
+    active_risk: float
+    total_risk: float
+    utilization: float
+    account_value: float
+    dollars_allocated: float
 
 
 def generate_portfolio_metrics_table(metrics: PortfolioMetrics) -> Table:

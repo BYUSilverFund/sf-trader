@@ -2,7 +2,7 @@ from sf_trader.components.models import Orders, Shares
 from sf_trader.config import Config
 import dataframely as dy
 import sf_trader.utils.data
-import sf_trader.utils.functions
+import sf_trader.domain.functions
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 
@@ -16,7 +16,7 @@ def get_orders(
 
     # Config data loader
     sf_trader.utils.data.set_config(config=config)
-    sf_trader.utils.functions.set_config(config=config)
+    sf_trader.domain.functions.set_config(config=config)
 
     # Get current shares
     current_shares = broker.get_positions()
@@ -31,7 +31,7 @@ def get_orders(
     # TODO: Change to live price?
 
     # Get order deltas
-    orders = sf_trader.utils.functions.get_order_deltas(
+    orders = sf_trader.domain.functions.get_order_deltas(
         current_shares=current_shares, optimal_shares=optimal_shares, prices=prices
     )
 
