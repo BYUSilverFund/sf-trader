@@ -1,15 +1,13 @@
-from sf_trader.components.models import Orders, Shares
 from sf_trader.config import Config
-import dataframely as dy
-import sf_trader.utils.data
 import sf_trader.domain.functions
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, OrdersSchema
 
 
 def get_orders(
-    optimal_shares: dy.DataFrame[Shares], config: Config
-) -> dy.DataFrame[Orders]:
+    optimal_shares: SharesDF, config: Config
+) -> OrdersDF:
     # Connect to broker
     broker = config.broker
     port_dao = PortfolioDAO()
@@ -40,10 +38,10 @@ def get_orders(
     del config.broker
     del port_dao
 
-    return Orders.validate(orders)
+    return OrdersSchema.validate(orders)
 
 
-def post_orders(orders: dy.DataFrame[Orders], config: Config) -> None:
+def post_orders(orders: OrdersDF, config: Config) -> None:
     # Connect to broker
     broker = config.broker
 

@@ -1,16 +1,14 @@
-import dataframely as dy
 import polars as pl
-from sf_trader.components.models import Orders, Shares, Prices
 from sf_trader.config import Config
 from rich.console import Console
 import sf_trader.domain.tables_ui
-import sf_trader.utils.data
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, PricesDF, SharesSchema
 
 
 def get_orders_summary(
-    shares: dy.DataFrame[Shares], orders: dy.DataFrame[Orders], config: Config
+    shares: SharesDF, orders: OrdersDF, config: Config
 ) -> None:
     """
     Generate and display orders summary tables.
@@ -80,9 +78,9 @@ def get_orders_summary(
 
 
 def get_top_long_orders(
-    shares: dy.DataFrame[Shares],
-    prices: dy.DataFrame[Prices],
-    orders: dy.DataFrame[Orders],
+    shares: SharesDF,
+    prices: PricesDF,
+    orders: OrdersDF,
     top_n: int = 10,
 ) -> pl.DataFrame:
     long_positions = (
@@ -113,9 +111,9 @@ def get_top_long_orders(
 
 
 def get_top_active_orders(
-    shares: dy.DataFrame[Shares],
-    orders: dy.DataFrame[Orders],
-    prices: dy.DataFrame[Prices],
+    shares: SharesDF,
+    orders: OrdersDF,
+    prices: PricesDF,
     action: str,
     top_n: int = 10,
 ) -> pl.DataFrame:
@@ -149,10 +147,10 @@ def get_top_active_orders(
 
 
 def get_combined_shares(
-    current_shares: dy.DataFrame[Shares],
-    optimal_shares: dy.DataFrame[Shares],
+    current_shares: SharesDF,
+    optimal_shares: SharesDF,
     config: Config,
-) -> dy.DataFrame[Shares]:
+) -> SharesDF:
     # Get all unique tickers from both dataframes
     all_tickers = list(
         set(current_shares["ticker"].to_list() + optimal_shares["ticker"].to_list())
@@ -169,4 +167,4 @@ def get_combined_shares(
         pl.col("shares").fill_null(0),
     )
 
-    return Shares.validate(combined)
+    return SharesSchema.validate(combined)

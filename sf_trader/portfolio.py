@@ -1,7 +1,4 @@
-from sf_trader.components.models import Shares
-import dataframely as dy
 from sf_trader.config import Config
-import sf_trader.utils.data
 import sf_trader.domain.functions
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO

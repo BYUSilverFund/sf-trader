@@ -1,7 +1,6 @@
-import dataframely as dy
 import polars as pl
 from sf_trader.config import Config
-from sf_trader.components.models import PortfolioMetrics
+from sf_trader.domain.tables_ui import PortfolioMetrics
 
 import numpy as np
 
