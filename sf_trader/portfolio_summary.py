@@ -1,15 +1,20 @@
 import dataframely as dy
-from sf_trader.components.models import Shares
 from sf_trader.config import Config
 import sf_trader.utils.data
 from rich.console import Console
 import sf_trader.ui.tables
 import sf_trader.utils.functions
 
+from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+from sf_trader.dal.models.schema_models import SharesDF
 
-def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
+
+def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
     # Connect to broker
     broker = config.broker
+
+    # Connect to database
+    port_dao = PortfolioDAO()
 
     # Configure modules
     sf_trader.utils.data.set_config(config=config)
@@ -21,7 +26,7 @@ def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
     tickers = shares["ticker"].to_list()
 
     # Get prices
-    prices = sf_trader.utils.data.get_prices(tickers=tickers)
+    prices = port_dao.get_prices_by_date(date=config.data_date, tickers=tickers)
 
     # Get dollars
     dollars = sf_trader.utils.functions.get_dollars(shares=shares, prices=prices)

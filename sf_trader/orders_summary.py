@@ -6,6 +6,8 @@ from rich.console import Console
 import sf_trader.ui.tables
 import sf_trader.utils.data
 
+from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+
 
 def get_orders_summary(
     shares: dy.DataFrame[Shares], orders: dy.DataFrame[Orders], config: Config
@@ -25,11 +27,14 @@ def get_orders_summary(
     broker = config.broker
     current_shares = broker.get_positions()
 
+    #connect to Database
+    port_dao = PortfolioDAO()
+
     # Compute ticker list from both current and optimal portfolios
     tickers = list(set(current_shares["ticker"].to_list() + shares["ticker"].to_list()))
 
     # Get prices for all tickers
-    prices = sf_trader.utils.data.get_prices(tickers=tickers)
+    prices = port_dao.get_prices_by_date(date=config.data_date, tickers=tickers)
 
     # Create combined shares dataframe with both current and optimal shares
     combined_shares = get_combined_shares(

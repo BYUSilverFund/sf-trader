@@ -51,9 +51,10 @@ class PortfolioDAO(Database):
     
 
     def get_universe_by_date(self, date: dt.date) -> list[str]:
+        """Read universe tickers for a given date."""
+
         assets_table = self.get_table(TableName.ASSETS)
-        
-        return (assets_table.scan().filter(
+        tickers = (assets_table.scan().filter(
             pl.col("date").eq(date),
             pl.col('in_universe')
         )
@@ -63,3 +64,5 @@ class PortfolioDAO(Database):
         .sort()
         .to_list()
         )
+
+        return tickers

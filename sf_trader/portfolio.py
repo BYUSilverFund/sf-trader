@@ -17,30 +17,13 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     sf_trader.utils.functions.set_config(config=config)
 
     # Get universe
-    universe = sf_trader.utils.data.get_universe()
+    universe = port_dao.get_universe_by_date(date=config.data_date)
 
     # Get account value
     account_value = broker.get_account_value()
 
     # Get prices
     prices = port_dao.get_prices_by_date(date=config.data_date, tickers=universe)
-
-    # Get tradable universe
-    #tradable_universe = sf_trader.utils.functions.get_tradable_universe(prices=prices)
-
-    # Get asset data
-    #assets = sf_trader.utils.data.get_assets(tickers=tradable_universe)
-
-    # Get alphas
-    #alphas = sf_trader.utils.functions.get_alphas(assets=assets)
-
-    # Get betas
-    #betas = sf_trader.utils.data.get_betas(tickers=tradable_universe)
-
-    # Get covariance matrix
-    #covariance_matrix = sf_trader.utils.data.get_covariance_matrix(
-    #    tickers=tradable_universe
-    #)
 
     # Get optimal weights
     optimal_weights = port_dao.get_optimal_weights_by_date(date=config.data_date)
