@@ -4,10 +4,13 @@ from sf_trader.config import Config
 import sf_trader.utils.data
 import sf_trader.utils.functions
 
+from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+
 
 def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     # Connect to broker
     broker = config.broker
+    port_dao = PortfolioDAO()
 
     # Config data loader
     sf_trader.utils.data.set_config(config=config)
@@ -20,32 +23,27 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     account_value = broker.get_account_value()
 
     # Get prices
-    prices = sf_trader.utils.data.get_prices(tickers=universe)
+    prices = port_dao.get_prices_by_date(date=config.data_date, tickers=universe)
 
     # Get tradable universe
-    tradable_universe = sf_trader.utils.functions.get_tradable_universe(prices=prices)
+    #tradable_universe = sf_trader.utils.functions.get_tradable_universe(prices=prices)
 
     # Get asset data
-    assets = sf_trader.utils.data.get_assets(tickers=tradable_universe)
+    #assets = sf_trader.utils.data.get_assets(tickers=tradable_universe)
 
     # Get alphas
-    alphas = sf_trader.utils.functions.get_alphas(assets=assets)
+    #alphas = sf_trader.utils.functions.get_alphas(assets=assets)
 
     # Get betas
-    betas = sf_trader.utils.data.get_betas(tickers=tradable_universe)
+    #betas = sf_trader.utils.data.get_betas(tickers=tradable_universe)
 
     # Get covariance matrix
-    covariance_matrix = sf_trader.utils.data.get_covariance_matrix(
-        tickers=tradable_universe
-    )
+    #covariance_matrix = sf_trader.utils.data.get_covariance_matrix(
+    #    tickers=tradable_universe
+    #)
 
     # Get optimal weights
-    optimal_weights = sf_trader.utils.functions.get_optimal_weights(
-        tickers=tradable_universe,
-        alphas=alphas,
-        betas=betas,
-        covariance_matrix=covariance_matrix,
-    )
+    optimal_weights = port_dao.get_optimal_weights_by_date(date=config.data_date)
 
     # Get optimal shares
     optimal_shares = sf_trader.utils.functions.get_optimal_shares(
@@ -55,5 +53,6 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     # Disconnect broker
     del broker
     del config.broker
+    del port_dao
 
     return Shares.validate(optimal_shares)

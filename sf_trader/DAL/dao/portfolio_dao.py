@@ -34,8 +34,8 @@ class PortfolioDAO(Database):
     def get_prices_by_date(self, date: dt.date, tickers: list[str]) -> PricesDF:
         """Read prices for a given date."""
 
-        prices_table = self.get_table(TableName.ASSETS)
-        prices = (prices_table.scan(
+        assets_table = self.get_table(TableName.ASSETS)
+        prices = (assets_table.scan(
             year=date.year
         )
         .filter(
@@ -48,3 +48,18 @@ class PortfolioDAO(Database):
         )
 
         return PricesSchema.validate(prices)
+    
+
+    def get_universe_by_date(self, date: dt.date) -> list[str]:
+        assets_table = self.get_table(TableName.ASSETS)
+        
+        return (assets_table.scan().filter(
+            pl.col("date").eq(date),
+            pl.col('in_universe')
+        )
+        .collect()
+        .get_column("ticker")
+        .unique()
+        .sort()
+        .to_list()
+        )
