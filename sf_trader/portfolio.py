@@ -5,11 +5,14 @@ import sf_trader.utils.data
 import sf_trader.utils.functions
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+from sf_trader.dal.models.schema_models import SharesDF, SharesSchema
 
 
-def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
+def get_portfolio(config: Config) -> SharesDF:
     # Connect to broker
     broker = config.broker
+
+    # Connect to database
     port_dao = PortfolioDAO()
 
     # Config data loader
@@ -38,4 +41,4 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
     del config.broker
     del port_dao
 
-    return Shares.validate(optimal_shares)
+    return SharesSchema.validate(optimal_shares)

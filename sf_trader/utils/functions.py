@@ -9,7 +9,7 @@ from sf_trader.dal.models.schema_models import (
     DollarsDF, DollarsSchema,
     SharesDF, SharesSchema,
     WeightsDF, WeightsSchema,
-    PricesDF, PricesSchema,
+    PricesDF,
     OrdersDF, OrdersSchema
 )
 
