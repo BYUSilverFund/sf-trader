@@ -1,7 +1,7 @@
 from sf_trader.config import Config
 from rich.console import Console
 import sf_trader.domain.tables_ui
-import sf_trader.domain.functions
+import sf_trader.domain.computations
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 from sf_trader.dal.models.schema_models import SharesDF
@@ -27,11 +27,11 @@ def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
     prices = port_dao.get_prices_by_date(date=config.data_date, tickers=tickers)
 
     # Get dollars
-    dollars = sf_trader.domain.functions.get_dollars(shares=shares, prices=prices)
+    dollars = sf_trader.domain.computations.get_dollars(shares=shares, prices=prices)
     dollars_allocated = dollars["dollars"].sum()
 
     # Calculate portfolio weights from dollars
-    weights = sf_trader.domain.functions.get_weights_from_dollars(
+    weights = sf_trader.domain.computations.get_weights_from_dollars(
         dollars=dollars, account_value=account_value
     )
 
@@ -45,12 +45,12 @@ def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
     covariance_matrix = sf_trader.utils.data.get_covariance_matrix(tickers=universe)
 
     # Decompose weights
-    total_weights, active_weights = sf_trader.domain.functions.decompose_weights(
+    total_weights, active_weights = sf_trader.domain.computations.decompose_weights(
         benchmark=benchmark, weights=weights
     )
 
     # Generate portfolio metrics table
-    portfolio_metrics = sf_trader.domain.functions.get_portfolio_metrics(
+    portfolio_metrics = sf_trader.domain.computations.get_portfolio_metrics(
         total_weights=total_weights,
         active_weights=active_weights,
         covariance_matrix=covariance_matrix,
@@ -62,7 +62,7 @@ def get_portfolio_summary(shares: SharesDF, config: Config) -> None:
     )
 
     # Generate top long positiosn table
-    top_long_positions = sf_trader.domain.functions.get_top_long_positions(
+    top_long_positions = sf_trader.domain.computations.get_top_long_positions(
         shares=shares,
         prices=prices,
         dollars=dollars,

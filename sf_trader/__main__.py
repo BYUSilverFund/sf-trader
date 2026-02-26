@@ -8,7 +8,10 @@ import sf_trader.orders
 import sf_trader.portfolio_summary
 import sf_trader.orders_summary
 from sf_trader.config import Config
+
 from sf_trader.components.models import Orders, Shares
+
+from sf_trader.service.order_service import OrderService
 
 
 @click.group()
@@ -62,8 +65,11 @@ def get_portfolio(config_path: Path, output_file_path: Path):
 )
 def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
     config = Config(config_path)
+    order_service = OrderService(config=config, portfolio_dao=config.portfolio_dao)
+
     portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    orders = sf_trader.orders.get_orders(optimal_shares=portfolio, config=config)
+    orders = order_service.get_orders(optimal_shares=portfolio)
+    
     orders.write_csv(output_file_path)
 
 

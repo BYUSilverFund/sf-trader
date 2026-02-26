@@ -1,5 +1,5 @@
 from sf_trader.config import Config
-import sf_trader.domain.functions
+import sf_trader.domain.computations as computations
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, OrdersSchema
@@ -14,7 +14,7 @@ def get_orders(
 
     # Config data loader
     sf_trader.utils.data.set_config(config=config)
-    sf_trader.domain.functions.set_config(config=config)
+    sf_trader.domain.computations.set_config(config=config)
 
     # Get current shares
     current_shares = broker.get_positions()
@@ -29,7 +29,7 @@ def get_orders(
     # TODO: Change to live price?
 
     # Get order deltas
-    orders = sf_trader.domain.functions.get_order_deltas(
+    orders = sf_trader.domain.computations.get_order_deltas(
         current_shares=current_shares, optimal_shares=optimal_shares, prices=prices
     )
 
