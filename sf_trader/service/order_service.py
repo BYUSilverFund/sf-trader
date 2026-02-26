@@ -2,19 +2,26 @@ from sf_trader.config import Config
 import sf_trader.domain.computations as computations
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
-from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, OrdersSchema
+from sf_trader.dal.dao.surface_dao import SurfaceDAO
+from sf_trader.dal.models.schema_models import OrdersDF, OrdersSchema
+
 
 class OrderService:
-    def __init__(self, config: Config, portfolio_dao: PortfolioDAO):
-        self.portfolio_dao = portfolio_dao
+    def __init__(self, config: Config):
+        self.portfolio_dao = PortfolioDAO()
+        self.surface_dao = SurfaceDAO(config)
         self.config = config
         self.broker = config.broker
-
-
-    def get_orders(self, optimal_shares: SharesDF) -> OrdersDF:
+    
+    
+    def get_write_orders(self) -> OrdersDF:
+        """Reads optimal shares and computes orders, then writes orders to surface"""
 
         # Config helper
         computations.set_config(config=self.config)
+
+        # Get optimal shares (the csv saved portfolio)
+        optimal_shares = self.surface_dao.read_portfolio()
 
         # Get current shares
         current_shares = self.broker.get_positions()
@@ -33,12 +40,18 @@ class OrderService:
             current_shares=current_shares, optimal_shares=optimal_shares, prices=prices
         )
 
-        return OrdersSchema.validate(orders)
+        # Write orders to surface
+        self.surface_dao.write_orders(OrdersSchema.validate(orders))
+
+        return orders
 
 
-    def post_orders(self, orders: OrdersDF) -> None:
+    def post_orders(self) -> None:
         # Connect to broker
         broker = self.broker
+
+        # Get orders from surface
+        orders = self.surface_dao.read_orders()
 
         # Execute trades
         broker.post_orders(orders=orders)

@@ -1,4 +1,7 @@
+from importlib.resources import path
+
 import polars as pl
+import os
 
 from sf_trader.config import Config
 from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, OrdersSchema, SharesSchema
@@ -10,24 +13,31 @@ class SurfaceDAO:
     
 
     def write_orders(self, orders: OrdersDF) -> None:
-
-        path = self.config.orders_path
-        orders.write_csv(path)
+        
+        path_ = self.config.orders_path
+        orders.write_csv(path_)
 
 
     def read_orders(self) -> OrdersDF:
         
-        path = self.config.orders_path
-        return OrdersSchema.validate(pl.read_csv(path))
+        path_ = self.config.orders_path
+
+        if not os.path.exists(path_):
+                raise FileNotFoundError(f"Orders file not found at path: {path_}")
+
+        return OrdersSchema.validate(pl.read_csv(path_))
     
 
     def write_portfolio(self, shares: SharesDF) -> None:
 
-        path = self.config.portfolio_path
-        shares.write_csv(path)
+        path_ = self.config.portfolio_path
+        shares.write_csv(path_)
 
 
     def read_portfolio(self) -> SharesDF:
         
-        path = self.config.portfolio_path
-        return SharesSchema.validate(pl.read_csv(path))
+        path_ = self.config.portfolio_path
+        if not os.path.exists(path_):
+                raise FileNotFoundError(f"Portfolio file not found at path: {path_}")
+
+        return SharesSchema.validate(pl.read_csv(path_))

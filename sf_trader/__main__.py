@@ -65,12 +65,9 @@ def get_portfolio(config_path: Path, output_file_path: Path):
 )
 def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
     config = Config(config_path)
-    order_service = OrderService(config=config, portfolio_dao=config.portfolio_dao)
+    order_service = OrderService(config=config)
 
-    portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    orders = order_service.get_orders(optimal_shares=portfolio)
-    
-    orders.write_csv(output_file_path)
+    order_service.get_write_orders()
 
 
 @cli.command()
