@@ -1,20 +1,20 @@
 signals:
-- momentum
-- reversal
-- beta
+  - momentum
+  - reversal
+  - beta
 ic: .05
 signal-combinator: mean
 constraints:
-- full-investment
-- long-only
-- no-buying-on-margin
-- unit-beta
-gamma: 500
+  - full-investment
+  - long-only
+  - no-buying-on-margin
+  - unit-beta
+gamma: 400
 decimal-places: 4
-data-date: 2025-11-26
+data-date: 2026-01-29
 ignore-tickers:
-- MONDQ
-- VELO
-- BGXXQ
-- PSTX.CVR
+  - MONDQ
+  - VELO
+  - BGXXQ
+  - PSTX.CVR
 broker: ibkr

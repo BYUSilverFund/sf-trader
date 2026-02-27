@@ -33,6 +33,34 @@ def get_tradable_universe(prices: dy.DataFrame[Prices]) -> list[str]:
         .to_list()
     )
 
+def clip_scores_winsorize(signal_name: str) -> pl.Expr:
+    if signal_name == "barra_reversal_volume_clipped":
+        return pl.col(signal_name).clip(-2.0, 2.0)
+    return pl.col(signal_name)
+
+def barra_reversal_volume_clipped_alpha(signal_name: str, ic: float) -> pl.Expr:
+    score = pl.col(signal_name).clip(lower_bound=-2.0, upper_bound=2.0)
+
+    dv = (pl.col("daily_volume") * pl.col("price")).log1p()
+
+    dv_mean = dv.rolling_mean(window_size=252, min_samples=1).over("barrid")
+    dv_std = dv.rolling_std(window_size=252, min_samples=2).over("barrid")
+
+    volume_score = (
+        (dv - dv_mean)
+        / dv_std.fill_null(1.0).clip(lower_bound=0.0001)
+    ).fill_null(0.0)
+
+    gk_alpha = score * pl.lit(ic) * pl.col("specific_risk")
+
+    alpha = (
+        pl.when((score >= 2.0) & (volume_score >= 2.0))
+        .then(0.0)
+        .otherwise(gk_alpha)
+    )
+
+    return alpha.alias(signal_name)
+
 
 def get_alphas(assets: dy.DataFrame[Assets]) -> dy.DataFrame[Alphas]:
     signals = _config.signals
@@ -56,7 +84,9 @@ def get_alphas(assets: dy.DataFrame[Assets]) -> dy.DataFrame[Alphas]:
         # Compute alphas
         .with_columns(
             [
-                pl.col(signal.name).mul(pl.lit(ic)).mul(pl.col("specific_risk"))
+                barra_reversal_volume_clipped_alpha(signal.name, ic)
+                if signal.name == "barra_reversal_volume_clipped"
+                else pl.col(signal.name).mul(pl.lit(ic)).mul(pl.col("specific_risk"))
                 for signal in signals
             ]
         )

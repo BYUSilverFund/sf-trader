@@ -46,16 +46,23 @@ def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
         "date",
         "barrid",
         "ticker",
+        "price",
         "return",
         "predicted_beta",
         "specific_risk",
+        "specific_return",
+        "daily_volume"
     ]
 
     asset_data = (
         sfd.load_assets(
             start=start_date, end=end_date, columns=columns, in_universe=True
         )
-        .with_columns(pl.col("return").truediv(100))
+        .with_columns(
+            pl.col("return").truediv(100),
+            pl.col("specific_return").truediv(100),
+            pl.col("specific_risk").truediv(100),
+        )
         .filter(pl.col("ticker").is_in(tickers))
         .sort("ticker", "date")
     )
@@ -110,6 +117,7 @@ def get_covariance_matrix(tickers: list[str]) -> np.ndarray:
         .join(pl.DataFrame({"ticker": tickers}), on="ticker", how="inner")
         .sort("ticker")
     )
+
     tickers_ = ids["ticker"].to_list()
     barrids = ids["barrid"].to_list()
     sorted_barrids = sorted(barrids)
