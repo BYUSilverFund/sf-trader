@@ -61,7 +61,6 @@ def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
         .with_columns(
             pl.col("return").truediv(100),
             pl.col("specific_return").truediv(100),
-            pl.col("specific_risk").truediv(100),
         )
         .filter(pl.col("ticker").is_in(tickers))
         .sort("ticker", "date")

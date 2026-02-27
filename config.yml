@@ -1,6 +1,7 @@
 signals:
-  - momentum
-  - reversal
+  - vol_scaled_barra_momentum
+  - barra_reversal_volume_clipped
+  - ivol
   - beta
 ic: .05
 signal-combinator: mean
@@ -9,9 +10,9 @@ constraints:
   - long-only
   - no-buying-on-margin
   - unit-beta
-gamma: 400
+gamma: 170
 decimal-places: 4
-data-date: 2026-01-29
+data-date: 2026-02-26
 ignore-tickers:
   - MONDQ
   - VELO

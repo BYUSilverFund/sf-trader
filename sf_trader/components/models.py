@@ -38,8 +38,11 @@ class Assets(dy.Schema):
     barrid = dy.String(nullable=False)
     ticker = dy.String(nullable=False)
     return_ = dy.Float64(nullable=False, alias="return")
+    price = dy.Float64(nullable=False)
     predicted_beta = dy.Float64(nullable=True)
     specific_risk = dy.Float64(nullable=True)
+    specific_return = dy.Float64(nullable=True)
+    daily_volume = dy.Float64(nullable=True)
 
 
 class Prices(dy.Schema):

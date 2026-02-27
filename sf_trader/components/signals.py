@@ -1,6 +1,6 @@
 import polars as pl
 
-from sf_trader.components.models import Signal
+from components.models import Signal
 
 
 def momentum() -> Signal:

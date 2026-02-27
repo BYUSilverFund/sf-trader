@@ -76,8 +76,13 @@ def get_alphas(assets: dy.DataFrame[Assets]) -> dy.DataFrame[Alphas]:
         .with_columns(
             [
                 pl.col(signal.name)
-                .sub(pl.col(signal.name).mean())
-                .truediv(pl.col(signal.name).std())
+                .sub(pl.col(signal.name).mean().over("date"))
+                .truediv(
+                    pl.col(signal.name)
+                    .std().over("date")
+                    .fill_null(0.0)
+                    .clip(lower_bound=1e-8)
+                )
                 for signal in signals
             ]
         )
