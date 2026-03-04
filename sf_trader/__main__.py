@@ -9,7 +9,7 @@ import sf_trader.portfolio_summary
 import sf_trader.orders_summary
 from sf_trader.config import Config
 
-from sf_trader.components.models import Orders, Shares
+from sf_trader.dal.models.schema_models import Orders, Shares
 
 from sf_trader.service.order_service import OrderService
 

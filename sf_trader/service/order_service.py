@@ -1,5 +1,5 @@
 from sf_trader.config import Config
-import sf_trader.domain.computations as computations
+import sf_trader.utils.computations as computations
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 from sf_trader.dal.dao.surface_dao import SurfaceDAO
