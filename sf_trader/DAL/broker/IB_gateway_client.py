@@ -11,28 +11,22 @@ from typing import Optional
 class IBGatewayClient(BrokerClient):
     def __init__(
         self,
+        app: TWSSyncWrapper | None = None,
         host: str = "127.0.0.1",
-        port: int = 4002,  # IB Gateway paper; use 4001 for live
+        port: int = 4002,
         client_id: int = 8675309,
         timeout: int = 30,
+        connect: bool = True,
     ) -> None:
-        self.host = host
-        self.port = port
-        self.client_id = client_id
-        self.timeout = timeout
+        self._app = app or TWSSyncWrapper(timeout=timeout)
 
-        self._app = TWSSyncWrapper(timeout=self.timeout)
-
-        if not self._app.connect_and_start(
-            host=self.host,
-            port=self.port,
-            client_id=self.client_id,
-        ):
-            raise RuntimeError(
-                f"Failed to connect to IB Gateway at {self.host}:{self.port}"
-            )
-
-        print(f"Connected to IB Gateway at {self.host}:{self.port}")
+        if connect:
+            if not self._app.connect_and_start(
+                host=host,
+                port=port,
+                client_id=client_id,
+            ):
+                raise RuntimeError("Failed to connect to IB Gateway")
 
     @staticmethod
     def _convert_ticker_to_ibkr_format(ticker: str) -> str:
