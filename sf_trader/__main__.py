@@ -63,7 +63,7 @@ def get_portfolio(config_path: Path, output_file_path: Path):
     default="orders.csv",
     help="Path to orders file",
 )
-def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
+def get_orders(config_path: Path):
     config = Config(config_path)
     order_service = OrderService(config=config)
 

@@ -7,7 +7,12 @@ from sf_trader.dal.models.schema_models import OrdersDF, OrdersSchema
 
 
 class OrderService:
-    def __init__(self, config: Config, portfolio_dao: PortfolioDAO | None = None, surface_dao: SurfaceDAO | None = None):
+    def __init__(
+        self, 
+        config: Config, 
+        portfolio_dao: PortfolioDAO | None = None, 
+        surface_dao: SurfaceDAO | None = None
+    ):
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
         self.surface_dao = surface_dao or SurfaceDAO(config)
         self.config = config
@@ -20,7 +25,7 @@ class OrderService:
         # Configure helper
         computations.set_config(config=self.config)
 
-        # Get optimal shares (the csv saved portfolio)
+        # Get optimal shares from surface
         optimal_shares = self.surface_dao.read_portfolio()
 
         # Get current shares
@@ -32,8 +37,8 @@ class OrderService:
         )
 
         # Get live prices
-        prices = self.portfolio_dao.get_prices_by_date(date=self.config.data_date, tickers=tickers)
         # TODO: Change to live price?
+        prices = self.portfolio_dao.get_prices_by_date(date=self.config.data_date, tickers=tickers)
 
         # Get order deltas
         orders = computations.get_order_deltas(

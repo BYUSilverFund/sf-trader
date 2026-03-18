@@ -1,5 +1,3 @@
-from importlib.resources import path
-
 import polars as pl
 import os
 
