@@ -256,6 +256,35 @@ def decompose_weights(
     return total_weights, active_weights
 
 
+def compute_mcar_pcar(
+    active_weights: np.ndarray,
+    covariance_matrix: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Computes Marginal Contribution and Percentage Contribution to AR.
+    
+    Args:
+        active_weights (np.ndarray): 
+            1D array of active portfolio weights.
+        covariance_matrix (np.ndarray): 
+            Covariance matrix of asset returns.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray, np.ndarray]:
+            - mcar: Marginal contribution to active risk
+            - tcar: Total contribution to active risk 
+            - pcar: Percentage contribution to active risk,
+    """
+    active_risk = compute_risk(active_weights, covariance_matrix)
+
+    cov_w = covariance_matrix @ active_weights
+
+    mcar = cov_w / active_risk
+    tcar = active_weights * mcar
+    pcar = tcar / active_risk
+    
+    return mcar, tcar, pcar
+
+
 def get_portfolio_metrics(
     total_weights: np.ndarray,
     active_weights: np.ndarray,
@@ -287,16 +316,90 @@ def get_portfolio_metrics(
     )
 
 
+# def get_top_long_positions(
+#     shares: dy.DataFrame[Shares],
+#     prices: dy.DataFrame[Prices],
+#     dollars: dy.DataFrame[Dollars],
+#     weights: dy.DataFrame[Weights],
+#     benchmark: dy.DataFrame[Weights],
+#     account_value: float,
+#     top_n: int = 10,
+# ) -> pl.DataFrame:
+#     # Join all data together
+#     positions = (
+#         shares.join(prices, on="ticker", how="left")
+#         .join(dollars, on="ticker", how="left")
+#         .join(weights, on="ticker", how="left")
+#         .join(
+#             benchmark.select("ticker", pl.col("weight").alias("weight_bmk")),
+#             on="ticker",
+#             how="left",
+#         )
+#         .with_columns(
+#             pl.col("weight_bmk").fill_null(0),
+#         )
+#         .with_columns(pl.col("weight").sub(pl.col("weight_bmk")).alias("weight_act"))
+#         .with_columns(
+#             pl.when(pl.col("weight_bmk") != 0)
+#             .then((pl.col("weight_act") / pl.col("weight_bmk")) * 100)
+#             .otherwise(None)
+#             .alias("pct_chg_bmk")
+#         )
+#         .filter(pl.col("dollars") > 0)  # Only long positions
+#         .sort("dollars", descending=True)
+#         .head(top_n)
+#         .select(
+#             "ticker",
+#             "shares",
+#             "price",
+#             "dollars",
+#             "weight",
+#             "weight_bmk",
+#             "weight_act",
+#             "pct_chg_bmk",
+#         )
+#     )
+
+#     return positions
+
+
 def get_top_long_positions(
     shares: dy.DataFrame[Shares],
     prices: dy.DataFrame[Prices],
     dollars: dy.DataFrame[Dollars],
     weights: dy.DataFrame[Weights],
     benchmark: dy.DataFrame[Weights],
+    covariance_matrix: np.ndarray,
     account_value: float,
     top_n: int = 10,
 ) -> pl.DataFrame:
-    # Join all data together
+    # Build ticker-aligned active weight vector
+    decomposed = (
+        benchmark.select("ticker", pl.col("weight").alias("weight_bmk"))
+        .join(weights.select("ticker", "weight"), on="ticker", how="left")
+        .with_columns(pl.col("weight").fill_null(0.0))
+        .with_columns((pl.col("weight") - pl.col("weight_bmk")).alias("weight_act"))
+        .sort("ticker")
+    )
+
+    tickers = decomposed["ticker"].to_list()
+    w_act = decomposed["weight_act"].to_numpy()
+
+    mcar, tcar, pcar = compute_mcar_pcar(w_act, covariance_matrix)
+
+    risk_attrib = pl.DataFrame(
+        {
+            "ticker": tickers,
+            # marginal contribution to active risk
+            "mcar": mcar,
+            # total contribution to active risk
+            "tcar": tcar,
+            # percent contribution to active risk
+            "pcar": pcar,
+        }
+    )
+
+    # Join all position data
     positions = (
         shares.join(prices, on="ticker", how="left")
         .join(dollars, on="ticker", how="left")
@@ -306,16 +409,15 @@ def get_top_long_positions(
             on="ticker",
             how="left",
         )
-        .with_columns(
-            pl.col("weight_bmk").fill_null(0),
-        )
-        .with_columns(pl.col("weight").sub(pl.col("weight_bmk")).alias("weight_act"))
+        .with_columns(pl.col("weight_bmk").fill_null(0.0))
+        .with_columns((pl.col("weight") - pl.col("weight_bmk")).alias("weight_act"))
         .with_columns(
             pl.when(pl.col("weight_bmk") != 0)
             .then((pl.col("weight_act") / pl.col("weight_bmk")) * 100)
             .otherwise(None)
             .alias("pct_chg_bmk")
         )
+        .join(risk_attrib, on="ticker", how="left")
         .filter(pl.col("dollars") > 0)  # Only long positions
         .sort("dollars", descending=True)
         .head(top_n)
@@ -328,6 +430,9 @@ def get_top_long_positions(
             "weight_bmk",
             "weight_act",
             "pct_chg_bmk",
+            "mcar",
+            "tcar",
+            "pcar",
         )
     )
 

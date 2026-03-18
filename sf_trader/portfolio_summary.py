@@ -66,6 +66,7 @@ def get_portfolio_summary(shares: dy.DataFrame[Shares], config: Config) -> None:
         weights=weights,
         benchmark=benchmark,
         account_value=account_value,
+        covariance_matrix=covariance_matrix,
     )
     top_long_positions_table = ui.tables.generate_positions_table(
         positions=top_long_positions, title="Top 10 Long Positions"

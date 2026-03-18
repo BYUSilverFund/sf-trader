@@ -36,13 +36,22 @@ def generate_positions_table(
     table.add_column("Weight", style="green", justify="right")
     table.add_column("Weight Bmk", style="yellow", justify="right")
     table.add_column("Weight Act", style="magenta", justify="right")
-    table.add_column("% Chg Bmk", style="blue", justify="right")
+    # table.add_column("% Chg Bmk", style="blue", justify="right")
+    
+    table.add_column("MCAR(%)", style="white", justify="right")
+    # table.add_column("ARC (%)", style="white", justify="right")
+    table.add_column("PCAR(%)", style="white", justify="right")
 
     # Add rows
     for row in positions.iter_rows(named=True):
         pct_chg = (
             f"{row['pct_chg_bmk']:.1f}%" if row["pct_chg_bmk"] is not None else "N/A"
         )
+
+        mcar = row.get("mcar", None)
+        tcar = row.get("tcar", None)
+        pcar = row.get("pcar", None)
+
         table.add_row(
             row["ticker"],
             f"{row['shares']:,.0f}",
@@ -51,7 +60,10 @@ def generate_positions_table(
             f"{row['weight']:.2%}",
             f"{row['weight_bmk']:.2%}",
             f"{row['weight_act']:.2%}",
-            pct_chg,
+            # pct_chg,
+            f"{mcar:.2%}" if mcar is not None else "N/A",
+            # f"{ctr:.2%}" if ctr is not None else "N/A",
+            f"{pcar:.2%}" if pcar is not None else "N/A",
         )
 
     return table
