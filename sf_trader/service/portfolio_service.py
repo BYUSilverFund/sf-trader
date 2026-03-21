@@ -1,9 +1,10 @@
 from sf_trader.config import Config
-import sf_trader.utils.computations as computations
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 from sf_trader.dal.dao.surface_dao import SurfaceDAO
-from sf_trader.dal.models.schema_models import OrdersDF, OrdersSchema
+from sf_trader.dal.models.schema_models import SharesDF, SharesSchema, WeightsDF, PricesDF
+
+import polars as pl
 
 
 class PortfolioService:
@@ -19,9 +20,26 @@ class PortfolioService:
         self.broker = config.broker
 
 
-    def get_portfolio(self, config: Config) -> SharesDF:
+    @staticmethod
+    def get_optimal_shares(
+        weights: WeightsDF, prices: PricesDF, account_value: float
+    ) -> SharesDF:
+        optimal_shares = (
+            weights.join(prices, on="ticker", how="left")
+            .with_columns(pl.lit(account_value).mul(pl.col("weight")).alias("dollars"))
+            .with_columns(
+                pl.col("dollars").truediv(pl.col("price")).floor().alias("shares")
+            )
+            .select(
+                "ticker",
+                "shares",
+            )
+        )
 
-        sf_trader.domain.computations.set_config(config=self.config)
+        return SharesSchema.validate(optimal_shares)
+    
+
+    def get_portfolio(self, config: Config) -> SharesDF:
 
         # Get universe
         universe = self.portfolio_dao.get_universe_by_date(date=config.data_date)
@@ -33,16 +51,11 @@ class PortfolioService:
         prices = self.portfolio_dao.get_prices_by_date(date=config.data_date, tickers=universe)
 
         # Get optimal weights
-        optimal_weights = port_dao.get_optimal_weights_by_date(date=config.data_date)
+        optimal_weights = self.portfolio_dao.get_optimal_weights_by_date(date=config.data_date)
 
         # Get optimal shares
-        optimal_shares = sf_trader.domain.computations.get_optimal_shares(
+        optimal_shares = self.get_optimal_shares(
             weights=optimal_weights, prices=prices, account_value=account_value
         )
-
-        # Disconnect broker
-        del broker
-        del config.broker
-        del port_dao
 
         return SharesSchema.validate(optimal_shares)

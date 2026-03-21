@@ -20,23 +20,6 @@ def set_config(config: Config) -> None:
     _config = config
 
 
-def get_optimal_shares(
-    weights: WeightsDF, prices: PricesDF, account_value: float
-) -> SharesDF:
-    optimal_shares = (
-        weights.join(prices, on="ticker", how="left")
-        .with_columns(pl.lit(account_value).mul(pl.col("weight")).alias("dollars"))
-        .with_columns(
-            pl.col("dollars").truediv(pl.col("price")).floor().alias("shares")
-        )
-        .select(
-            "ticker",
-            "shares",
-        )
-    )
-
-    return SharesSchema.validate(optimal_shares)
-
 
 def get_order_deltas(
     prices: PricesDF,
