@@ -21,53 +21,6 @@ def set_config(config: Config) -> None:
 
 
 
-def get_order_deltas(
-    prices: PricesDF,
-    current_shares: SharesDF,
-    optimal_shares: SharesDF,
-) -> OrdersDF:
-    # Prep shares dataframes for join
-    current_shares = current_shares.rename({"shares": "current_shares"})
-    optimal_shares = optimal_shares.rename({"shares": "optimal_shares"})
-
-    orders = (
-        prices
-        # Joins
-        .join(current_shares, on="ticker", how="left")
-        .join(optimal_shares, on="ticker", how="left")
-        # Fill nulls with 0
-        .with_columns(pl.col("current_shares", "optimal_shares").fill_null(0))
-        # Compute share differential
-        .with_columns(pl.col("optimal_shares").sub("current_shares").alias("shares"))
-        # Compute order side
-        .with_columns(
-            pl.when(pl.col("shares").gt(0))
-            .then(pl.lit("BUY"))
-            .when(pl.col("shares").lt(0))
-            .then(pl.lit("SELL"))
-            .otherwise(pl.lit("HOLD"))
-            .alias("action")
-        )
-        # Absolute value the shares
-        .with_columns(pl.col("shares").abs())
-        # Select
-        .select("ticker", "price", "shares", "action")
-        # Filter
-        .filter(
-            pl.col("ticker")
-            .is_in(_config.ignore_tickers)
-            .not_(),  # Ignore problematic tickers
-            pl.col("shares").ne(0),  # Remove 0 share trades
-            pl.col("action").ne("HOLD"),  # Remove HOLDs
-            pl.col("price").is_not_null(),  # Remove unknown prices
-        )
-        # Sort
-        .sort("ticker")
-    )
-
-    return OrdersSchema.validate(orders)
-
-
 def compute_risk(weights: np.ndarray, covariance_matrix: np.ndarray) -> float:
     return np.sqrt(weights @ covariance_matrix @ weights.T)
 
