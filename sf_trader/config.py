@@ -1,7 +1,4 @@
-from sf_trader.components.signals import get_signal
-from sf_trader.components.combinators import get_combinator
-from sf_trader.components.constraints import get_constraint
-from sf_trader.broker import get_broker
+from sf_trader.dal.broker import get_broker
 
 import yaml
 
@@ -9,7 +6,6 @@ _config = None
 
 class ConfigError(Exception):
     """Raised when configuration is invalid"""
-
     pass
 
 
@@ -26,36 +22,11 @@ class Config:
                 raise ConfigError("'ignore_tickers' must be a list of tickers")
         except ValueError as e:
             raise ConfigError(f"Invalid ignore_tickers configuration: {e}")
-
-        # Parse and build signals
-        try:
-            signal_names = raw_config.get("signals", [])
-            if not isinstance(signal_names, list):
-                raise ConfigError("'signals' must be a list of signal names")
-            self.signals = [get_signal(name) for name in signal_names]
-        except ValueError as e:
-            raise ConfigError(f"Invalid signal configuration: {e}")
-
+        
         # Get ic parameter
         self.ic = float(raw_config.get("ic"))
         if not isinstance(self.ic, (float)):
-            raise ConfigError(f"'gamma' must be a float, got {type(self.ic).__name__}")
-
-        # Parse and build signal combinator
-        try:
-            combinator_name = raw_config.get("signal-combinator", "mean")
-            self.signal_combinator = get_combinator(combinator_name)
-        except ValueError as e:
-            raise ConfigError(f"Invalid signal combinator configuration: {e}")
-
-        # Parse and build constraints
-        try:
-            constraint_names = raw_config.get("constraints", [])
-            if not isinstance(constraint_names, list):
-                raise ConfigError("'constraints' must be a list of constraint names")
-            self.constraints = [get_constraint(name) for name in constraint_names]
-        except ValueError as e:
-            raise ConfigError(f"Invalid constraint configuration: {e}")
+            raise ConfigError(f"'ic' must be a float, got {type(self.ic).__name__}")
 
         # Get gamma parameter
         self.gamma = float(raw_config.get("gamma"))
