@@ -71,17 +71,3 @@ class IBGatewayClient(BrokerClient):
             self.disconnect()
         except Exception:
             pass
-
-
-def ib_gateway_client(
-    host: str = "127.0.0.1",
-    port: int = 4002,
-    client_id: int = 8675309,
-    timeout: int = 30,
-) -> IBGatewayClient:
-    return IBGatewayClient(
-        host=host,
-        port=port,
-        client_id=client_id,
-        timeout=timeout,
-    )

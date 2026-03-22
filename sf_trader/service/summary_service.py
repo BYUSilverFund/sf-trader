@@ -3,6 +3,7 @@ from sf_trader.config import Config
 from rich.console import Console
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
+from sf_trader.service.ui_service import UIService
 from sf_trader.dal.models.schema_models import (
     SharesDF, OrdersDF, PricesDF, SharesSchema, DollarsDF, DollarsSchema, WeightsDF, WeightsSchema
 )
@@ -15,6 +16,7 @@ class SummaryService():
         portfolio_dao: PortfolioDAO | None = None, 
     ):
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
+        self.ui_service = UIService()
         self.config = config
         self.broker = config.broker
 
@@ -60,7 +62,7 @@ class SummaryService():
             account_value=account_value,
             dollars_allocated=dollars_allocated,
         )
-        portfolio_metrics_table = sf_trader.domain.tables_ui.generate_portfolio_metrics_table(
+        portfolio_metrics_table = self.ui_service.generate_portfolio_metrics_table(
             portfolio_metrics
         )
 
@@ -73,7 +75,7 @@ class SummaryService():
             benchmark=benchmark,
             account_value=account_value,
         )
-        top_long_positions_table = sf_trader.domain.tables_ui.generate_positions_table(
+        top_long_positions_table = self.ui_service.generate_positions_table(
             positions=top_long_positions, title="Top 10 Long Positions"
         )
 
@@ -146,6 +148,7 @@ class SummaryService():
         console.print()
         console.print(top_active_sell_orders_table)
 
+
     @staticmethod
     def get_top_long_orders(
         shares: SharesDF,
@@ -178,6 +181,7 @@ class SummaryService():
         )
 
         return long_positions
+
 
     @staticmethod
     def get_top_active_orders(
@@ -239,6 +243,7 @@ class SummaryService():
 
         return SharesSchema.validate(combined)
     
+
     @staticmethod
     def get_dollars(
         shares: SharesDF, prices: PricesDF
@@ -250,6 +255,7 @@ class SummaryService():
         )
 
         return DollarsSchema.validate(dollars)
+
 
     @staticmethod
     def get_weights_from_dollars(

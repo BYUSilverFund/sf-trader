@@ -161,7 +161,3 @@ class IBKRClient(BrokerClient):
 
     def __del__(self) -> None:
         self._app.disconnect_and_stop()
-
-
-def ibrk_client() -> IBKRClient:
-    return IBKRClient()
