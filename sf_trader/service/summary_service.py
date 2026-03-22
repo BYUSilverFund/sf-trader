@@ -4,8 +4,9 @@ from rich.console import Console
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
 from sf_trader.service.ui_service import UIService
+from sf_trader.service.calculate_service import CalculateService
 from sf_trader.dal.models.schema_models import (
-    SharesDF, OrdersDF, PricesDF, SharesSchema, DollarsDF, DollarsSchema, WeightsDF, WeightsSchema
+    SharesDF, OrdersDF, PricesDF, SharesSchema, 
 )
 
 
@@ -14,8 +15,10 @@ class SummaryService():
         self, 
         config: Config, 
         portfolio_dao: PortfolioDAO | None = None, 
+        calculate_service: CalculateService | None = None,
     ):
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
+        self.calculate_service = calculate_service or CalculateService(config)
         self.ui_service = UIService()
         self.config = config
         self.broker = config.broker
@@ -32,11 +35,11 @@ class SummaryService():
         prices = self.portfolio_dao.get_prices_by_date(date=self.config.data_date, tickers=tickers)
 
         # Get dollars
-        dollars = self.get_dollars(shares=shares, prices=prices)
+        dollars = self.calculate_service.get_dollars(shares=shares, prices=prices)
         dollars_allocated = dollars["dollars"].sum()
 
         # Calculate portfolio weights from dollars
-        weights = self.get_weights_from_dollars(
+        weights = self.calculate_service.get_weights_from_dollars(
             dollars=dollars, account_value=account_value
         )
 
@@ -50,12 +53,12 @@ class SummaryService():
         covariance_matrix = sf_trader.utils.data.get_covariance_matrix(tickers=universe)
 
         # Decompose weights
-        total_weights, active_weights = sf_trader.domain.computations.decompose_weights(
+        total_weights, active_weights = self.calculate_service.decompose_weights(
             benchmark=benchmark, weights=weights
         )
 
         # Generate portfolio metrics table
-        portfolio_metrics = sf_trader.domain.computations.get_portfolio_metrics(
+        portfolio_metrics = self.calculate_service.get_portfolio_metrics(
             total_weights=total_weights,
             active_weights=active_weights,
             covariance_matrix=covariance_matrix,
@@ -67,7 +70,7 @@ class SummaryService():
         )
 
         # Generate top long positiosn table
-        top_long_positions = sf_trader.domain.computations.get_top_long_positions(
+        top_long_positions = self.calculate_service.get_top_long_positions(
             shares=shares,
             prices=prices,
             dollars=dollars,
@@ -119,7 +122,7 @@ class SummaryService():
             shares=combined_shares, prices=prices, orders=orders, top_n=10
         )
 
-        top_long_orders_table = sf_trader.domain.tables_ui.generate_orders_table(
+        top_long_orders_table = self.ui_service.generate_orders_table(
             orders=top_long_orders, title="Top 10 Long Position Orders"
         )
 
@@ -127,7 +130,7 @@ class SummaryService():
         top_active_buy_orders = self.get_top_active_orders(
             shares=combined_shares, orders=orders, prices=prices, action="BUY", top_n=10
         )
-        top_active_buy_orders_table = sf_trader.domain.tables_ui.generate_orders_table(
+        top_active_buy_orders_table = self.ui_service.generate_orders_table(
             orders=top_active_buy_orders, title="Top 10 Active BUY Orders by Dollar Value"
         )
 
@@ -135,7 +138,7 @@ class SummaryService():
         top_active_sell_orders = self.get_top_active_orders(
             shares=combined_shares, orders=orders, prices=prices, action="SELL", top_n=10
         )
-        top_active_sell_orders_table = sf_trader.domain.tables_ui.generate_orders_table(
+        top_active_sell_orders_table = self.ui_service.generate_orders_table(
             orders=top_active_sell_orders, title="Top 10 Active SELL Orders by Dollar Value"
         )
 
@@ -243,26 +246,3 @@ class SummaryService():
 
         return SharesSchema.validate(combined)
     
-
-    @staticmethod
-    def get_dollars(
-        shares: SharesDF, prices: PricesDF
-    ) -> DollarsDF:
-        dollars = (
-            shares.join(prices, on="ticker", how="left")
-            .with_columns(pl.col("shares").mul("price").alias("dollars"))
-            .select("ticker", "dollars")
-        )
-
-        return DollarsSchema.validate(dollars)
-
-
-    @staticmethod
-    def get_weights_from_dollars(
-        dollars: DollarsDF, account_value: float
-    ) -> WeightsDF:
-        weights = dollars.with_columns(
-            (pl.col("dollars") / pl.lit(account_value)).alias("weight")
-        ).sort("ticker")
-
-        return WeightsSchema.validate(weights)

@@ -7,6 +7,7 @@ from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, OrdersSchema,
 
 class SurfaceDAO:
     """Data Acess Object for reading and writing files using the temporary paths deifned in config."""
+    
     def __init__(self, config: Config):
         self.config = config
     
