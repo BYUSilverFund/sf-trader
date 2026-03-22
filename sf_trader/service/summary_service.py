@@ -50,7 +50,7 @@ class SummaryService():
         universe = benchmark["ticker"].sort().to_list()
 
         # Get covariance matrix
-        covariance_matrix = sf_trader.utils.data.get_covariance_matrix(tickers=universe)
+        covariance_matrix = self.calculate_service.get_covariance_matrix(tickers=universe)
 
         # Decompose weights
         total_weights, active_weights = self.calculate_service.decompose_weights(
