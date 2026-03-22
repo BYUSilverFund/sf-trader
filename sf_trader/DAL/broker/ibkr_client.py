@@ -1,14 +1,7 @@
-<<<<<<< HEAD:sf_trader/DAL/broker/ibkr_client.py
 from sf_trader.dal.broker import BrokerClient
 import polars as pl
 
 from sf_trader.dal.models.schema_models import PricesDF, OrdersDF, SharesDF, SharesSchema
-=======
-from broker.client import BrokerClient
-import dataframely as dy
-import polars as pl
-from components.models import Prices, Orders, Shares
->>>>>>> origin/main:sf_trader/broker/ibkr.py
 from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order, OrderCancel
 from ibapi.account_summary_tags import AccountSummaryTags
 from rich import print

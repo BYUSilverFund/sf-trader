@@ -1,12 +1,6 @@
 from abc import ABC, abstractmethod
 
-<<<<<<< HEAD:sf_trader/DAL/broker/broker_client.py
 from sf_trader.dal.models import PricesDF, OrdersDF, SharesDF
-=======
-import dataframely as dy
-
-from components.models import Prices, Orders, Shares
->>>>>>> origin/main:sf_trader/broker/client.py
 
 
 class BrokerClient(ABC):
