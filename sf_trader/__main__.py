@@ -1,17 +1,13 @@
 import click
 from pathlib import Path
 
-import polars as pl
-
-import sf_trader.portfolio
-import sf_trader.orders
-import sf_trader.portfolio_summary
-import sf_trader.orders_summary
 from sf_trader.config import Config
 
-from sf_trader.dal.models.schema_models import Orders, Shares
+from sf_trader.dal.dao.surface_dao import SurfaceDAO
 
 from sf_trader.service.order_service import OrderService
+from sf_trader.service.portfolio_service import PortfolioService
+from sf_trader.service.summary_service import SummaryService
 
 
 @click.group()
@@ -28,17 +24,11 @@ def cli():
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--output-file-path",
-    "-o",
-    type=click.Path(exists=False, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-def get_portfolio(config_path: Path, output_file_path: Path):
+def get_portfolio(config_path: Path):
     config = Config(config_path)
-    portfolio = sf_trader.portfolio.get_portfolio(config)
-    portfolio.write_csv(output_file_path)
+    portfolio_service = PortfolioService(config)
+
+    portfolio_service.get_write_portfolio(config)
 
 
 @cli.command()
@@ -48,20 +38,6 @@ def get_portfolio(config_path: Path, output_file_path: Path):
     type=click.Path(exists=True, path_type=Path),
     default="config.yml",
     help="Path to configuration file",
-)
-@click.option(
-    "--portfolio-path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-@click.option(
-    "--output-file-path",
-    "-o",
-    type=click.Path(exists=False, path_type=Path),
-    default="orders.csv",
-    help="Path to orders file",
 )
 def get_orders(config_path: Path):
     config = Config(config_path)
@@ -78,17 +54,13 @@ def get_orders(config_path: Path):
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--portfolio-path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-def get_portfolio_summary(config_path: Path, portfolio_path: Path):
+def get_portfolio_summary(config_path: Path):
     config = Config(config_path)
-    portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    sf_trader.portfolio_summary.get_portfolio_summary(shares=portfolio, config=config)
+    surface_dao = SurfaceDAO(config)
+    summary_service = SummaryService(config)
+
+    portfolio = surface_dao.read_portfolio()
+    summary_service.get_portfolio_summary(shares=portfolio, config=config)
 
 
 @cli.command()
@@ -99,27 +71,14 @@ def get_portfolio_summary(config_path: Path, portfolio_path: Path):
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--portfolio-path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-@click.option(
-    "--orders-path",
-    "-o",
-    type=click.Path(exists=True, path_type=Path),
-    default="orders.csv",
-    help="Path to orders file",
-)
-def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Path):
+def get_orders_summary(config_path: Path):
     config = Config(config_path)
-    orders = Orders.validate(pl.read_csv(orders_path))
-    portfolio = Shares.validate(pl.read_csv(portfolio_path))
-    sf_trader.orders_summary.get_orders_summary(
-        shares=portfolio, orders=orders, config=config
-    )
+    surface_dao = SurfaceDAO(config)
+    summary_service = SummaryService(config)
+
+    orders = surface_dao.read_orders()
+    portfolio = surface_dao.read_portfolio()
+    summary_service.get_orders_summary(shares=portfolio, orders=orders, config=config)
 
 
 @cli.command()
@@ -130,17 +89,13 @@ def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Pat
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--orders-path",
-    "-o",
-    type=click.Path(exists=True, path_type=Path),
-    default="orders.csv",
-    help="Path to orders file.",
-)
-def post_orders(config_path: Path, orders_path: Path):
+def post_orders(config_path: Path):
     config = Config(config_path)
-    orders = Orders.validate(pl.read_csv(orders_path))
-    sf_trader.orders.post_orders(orders=orders, config=config)
+    surface_dao = SurfaceDAO(config)
+    order_service = OrderService(config=config, surface_dao=surface_dao)
+    
+    orders = surface_dao.read_orders()
+    order_service.post_orders(orders=orders, config=config)
 
 
 @cli.command()
@@ -153,7 +108,9 @@ def post_orders(config_path: Path, orders_path: Path):
 )
 def cancel_orders(config_path: Path):
     config = Config(config_path)
-    sf_trader.orders.cancel_orders(config=config)
+    order_service = OrderService(config=config)
+
+    order_service.cancel_orders(config=config)
 
 
 @cli.command()

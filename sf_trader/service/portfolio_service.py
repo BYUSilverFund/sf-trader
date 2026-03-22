@@ -39,7 +39,8 @@ class PortfolioService:
         return SharesSchema.validate(optimal_shares)
     
 
-    def get_portfolio(self, config: Config) -> SharesDF:
+    def get_write_portfolio(self, config: Config) -> SharesDF:
+        "Gets the portfolio and writes it to the surface"
 
         # Get universe
         universe = self.portfolio_dao.get_universe_by_date(date=config.data_date)
@@ -58,4 +59,4 @@ class PortfolioService:
             weights=optimal_weights, prices=prices, account_value=account_value
         )
 
-        return SharesSchema.validate(optimal_shares)
+        self.surface_dao.write_portfolio(SharesSchema.validate(optimal_shares))

@@ -13,13 +13,11 @@ class SurfaceDAO:
     
 
     def write_orders(self, orders: OrdersDF) -> None:
-        
         path_ = self.config.orders_path
         orders.write_csv(path_)
 
 
     def read_orders(self) -> OrdersDF:
-        
         path_ = self.config.orders_path
 
         if not os.path.exists(path_):
@@ -29,14 +27,13 @@ class SurfaceDAO:
     
 
     def write_portfolio(self, shares: SharesDF) -> None:
-
         path_ = self.config.portfolio_path
         shares.write_csv(path_)
 
 
     def read_portfolio(self) -> SharesDF:
-        
         path_ = self.config.portfolio_path
+        
         if not os.path.exists(path_):
                 raise FileNotFoundError(f"Portfolio file not found at path: {path_}")
 
