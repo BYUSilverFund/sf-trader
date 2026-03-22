@@ -40,15 +40,15 @@ Note that all configuration for trading is in the `config.yml` file. This includ
 - To update universe mapping run the following from `sf-data-pipelines-quant`:
 
 ```bash
-python pipelines ftse backfill --production
+python pipelines ftse backfill --database production
 ```
 
 - To backfill barra data run the following from `sf-data-pipelines-quant`:
 - Note that this flow runs every day and should already be up to date.
 
 ```bash
-python pipelines barra backfill --production
-python piplines barra update --production
+python pipelines barra backfill --database production
+python piplines barra update --pdatabase roduction
 ```
 
 2. Generate portfolios

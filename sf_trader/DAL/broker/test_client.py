@@ -1,8 +1,17 @@
+<<<<<<< HEAD:sf_trader/DAL/broker/test_client.py
 from sf_trader.dal.broker.broker_client import BrokerClient
 import polars as pl
 import time
 
 from sf_trader.dal.models.schema_models import PricesDF, SharesDF, OrdersDF, PricesSchema, SharesSchema
+=======
+from broker.client import BrokerClient
+import dataframely as dy
+import polars as pl
+import time
+
+from components.models import Prices, Orders, Shares
+>>>>>>> origin/main:sf_trader/broker/test.py
 import sf_quant.data as sfd
 import datetime as dt
 
