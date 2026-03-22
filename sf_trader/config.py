@@ -22,18 +22,6 @@ class Config:
                 raise ConfigError("'ignore_tickers' must be a list of tickers")
         except ValueError as e:
             raise ConfigError(f"Invalid ignore_tickers configuration: {e}")
-        
-        # Get ic parameter
-        self.ic = float(raw_config.get("ic"))
-        if not isinstance(self.ic, (float)):
-            raise ConfigError(f"'ic' must be a float, got {type(self.ic).__name__}")
-
-        # Get gamma parameter
-        self.gamma = float(raw_config.get("gamma"))
-        if not isinstance(self.gamma, (float)):
-            raise ConfigError(
-                f"'gamma' must be a number, got {type(self.gamma).__name__}"
-            )
 
         # Get decimal_places parameter
         self.decimal_places = int(raw_config.get("decimal-places"))
