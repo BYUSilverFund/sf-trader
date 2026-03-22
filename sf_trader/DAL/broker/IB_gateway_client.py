@@ -1,11 +1,10 @@
-from sf_trader.broker.client import BrokerClient
+from sf_trader.dal.broker.broker_client import BrokerClient
 import dataframely as dy
 import polars as pl
-from sf_trader.components.models import Prices, Orders, Shares
+from sf_trader.dal.models.schema_models import PricesDF, OrdersDF, SharesDF
 from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order, OrderCancel
 from ibapi.account_summary_tags import AccountSummaryTags
 from rich import print
-from typing import Optional
 
 
 class IBGatewayClient(BrokerClient):
@@ -46,16 +45,16 @@ class IBGatewayClient(BrokerClient):
         contract.currency = "USD"
         return contract
 
-    def get_prices(self, tickers: list[str]) -> dy.DataFrame[Prices]:
+    def get_prices(self, tickers: list[str]) -> PricesDF:
         raise NotImplementedError("Implement market data retrieval for IB Gateway")
 
     def get_account_value(self) -> float:
         raise NotImplementedError("Implement account summary retrieval for IB Gateway")
 
-    def post_orders(self, orders: dy.DataFrame[Orders]) -> None:
+    def post_orders(self, orders: OrdersDF) -> None:
         raise NotImplementedError("Implement order placement for IB Gateway")
 
-    def get_positions(self) -> dy.DataFrame[Shares]:
+    def get_positions(self) -> SharesDF:
         raise NotImplementedError("Implement position retrieval for IB Gateway")
 
     def cancel_orders(self) -> None:
