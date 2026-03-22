@@ -1,10 +1,11 @@
 import polars as pl
 from sf_trader.config import Config
 from rich.console import Console
-import sf_trader.domain.tables_ui
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
-from sf_trader.dal.models.schema_models import SharesDF, OrdersDF, PricesDF, SharesSchema
+from sf_trader.dal.models.schema_models import (
+    SharesDF, OrdersDF, PricesDF, SharesSchema, DollarsDF, DollarsSchema, WeightsDF, WeightsSchema
+)
 
 
 class SummaryService():
@@ -19,10 +20,6 @@ class SummaryService():
 
 
     def get_portfolio_summary(self, shares: SharesDF) -> None:
-
-        # Configure modules
-        sf_trader.utils.data.set_config(config=self.config)
-
         # Get account value
         account_value = self.broker.get_account_value()
 
@@ -33,11 +30,11 @@ class SummaryService():
         prices = self.portfolio_dao.get_prices_by_date(date=self.config.data_date, tickers=tickers)
 
         # Get dollars
-        dollars = sf_trader.domain.computations.get_dollars(shares=shares, prices=prices)
+        dollars = self.get_dollars(shares=shares, prices=prices)
         dollars_allocated = dollars["dollars"].sum()
 
         # Calculate portfolio weights from dollars
-        weights = sf_trader.domain.computations.get_weights_from_dollars(
+        weights = self.get_weights_from_dollars(
             dollars=dollars, account_value=account_value
         )
 
@@ -241,3 +238,25 @@ class SummaryService():
         )
 
         return SharesSchema.validate(combined)
+    
+    @staticmethod
+    def get_dollars(
+        shares: SharesDF, prices: PricesDF
+    ) -> DollarsDF:
+        dollars = (
+            shares.join(prices, on="ticker", how="left")
+            .with_columns(pl.col("shares").mul("price").alias("dollars"))
+            .select("ticker", "dollars")
+        )
+
+        return DollarsSchema.validate(dollars)
+
+    @staticmethod
+    def get_weights_from_dollars(
+        dollars: DollarsDF, account_value: float
+    ) -> WeightsDF:
+        weights = dollars.with_columns(
+            (pl.col("dollars") / pl.lit(account_value)).alias("weight")
+        ).sort("ticker")
+
+        return WeightsSchema.validate(weights)

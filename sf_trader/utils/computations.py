@@ -5,11 +5,10 @@ from sf_trader.utils.tables_ui import PortfolioMetrics
 import numpy as np
 
 from sf_trader.dal.models.schema_models import (
-    DollarsDF, DollarsSchema,
-    SharesDF, SharesSchema,
-    WeightsDF, WeightsSchema,
+    DollarsDF,
+    SharesDF,
+    WeightsDF,
     PricesDF,
-    OrdersDF, OrdersSchema
 )
 
 _config = None
@@ -25,26 +24,10 @@ def compute_risk(weights: np.ndarray, covariance_matrix: np.ndarray) -> float:
     return np.sqrt(weights @ covariance_matrix @ weights.T)
 
 
-def get_dollars(
-    shares: SharesDF, prices: PricesDF
-) -> DollarsDF:
-    dollars = (
-        shares.join(prices, on="ticker", how="left")
-        .with_columns(pl.col("shares").mul("price").alias("dollars"))
-        .select("ticker", "dollars")
-    )
-
-    return DollarsSchema.validate(dollars)
 
 
-def get_weights_from_dollars(
-    dollars: DollarsDF, account_value: float
-) -> WeightsDF:
-    weights = dollars.with_columns(
-        (pl.col("dollars") / pl.lit(account_value)).alias("weight")
-    ).sort("ticker")
 
-    return WeightsSchema.validate(weights)
+
 
 
 def decompose_weights(

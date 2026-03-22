@@ -95,3 +95,22 @@ class PortfolioDAO(Database):
         )
 
         return WeightsSchema.validate(weights)
+    
+
+    def get_ticker_barrid_mapping(self, date: dt.date) -> pl.DataFrame:
+        assets_table = self.get_table(TableName.ASSETS)
+        
+        mapping = (assets_table.scan(
+            year=date.year
+        )
+        .filter(
+            pl.col("date").eq(date),
+            pl.col('in_universe')
+        )
+        .collect()
+        .select(["ticker", "barrid"])
+        .unique()
+        .sort()
+        )
+
+        return mapping
