@@ -28,7 +28,7 @@ def get_portfolio(config_path: Path):
     config = Config(config_path)
     portfolio_service = PortfolioService(config)
 
-    portfolio_service.get_write_portfolio(config)
+    portfolio_service.get_write_portfolio()
 
 
 @cli.command()
@@ -60,7 +60,7 @@ def get_portfolio_summary(config_path: Path):
     summary_service = SummaryService(config)
 
     portfolio = surface_dao.read_portfolio()
-    summary_service.get_portfolio_summary(shares=portfolio, config=config)
+    summary_service.get_portfolio_summary(shares=portfolio)
 
 
 @cli.command()
@@ -78,7 +78,7 @@ def get_orders_summary(config_path: Path):
 
     orders = surface_dao.read_orders()
     portfolio = surface_dao.read_portfolio()
-    summary_service.get_orders_summary(shares=portfolio, orders=orders, config=config)
+    summary_service.get_orders_summary(shares=portfolio, orders=orders)
 
 
 @cli.command()
@@ -91,11 +91,9 @@ def get_orders_summary(config_path: Path):
 )
 def post_orders(config_path: Path):
     config = Config(config_path)
-    surface_dao = SurfaceDAO(config)
-    order_service = OrderService(config=config, surface_dao=surface_dao)
-    
-    orders = surface_dao.read_orders()
-    order_service.post_orders(orders=orders, config=config)
+    order_service = OrderService(config)
+
+    order_service.post_orders()
 
 
 @cli.command()
@@ -110,7 +108,7 @@ def cancel_orders(config_path: Path):
     config = Config(config_path)
     order_service = OrderService(config=config)
 
-    order_service.cancel_orders(config=config)
+    order_service.cancel_orders()
 
 
 @cli.command()

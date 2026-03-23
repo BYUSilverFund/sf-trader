@@ -39,20 +39,20 @@ class PortfolioService:
         return SharesSchema.validate(optimal_shares)
     
 
-    def get_write_portfolio(self, config: Config) -> SharesDF:
+    def get_write_portfolio(self) -> SharesDF:
         "Gets the portfolio and writes it to the surface"
 
         # Get universe
-        universe = self.portfolio_dao.get_universe_by_date(date=config.data_date)
+        universe = self.portfolio_dao.get_universe_by_date(date=self.config.data_date)
 
         # Get account value
         account_value = self.broker.get_account_value()
 
         # Get prices
-        prices = self.portfolio_dao.get_prices_by_date(date=config.data_date, tickers=universe)
+        prices = self.portfolio_dao.get_prices_by_date(date=self.config.data_date, tickers=universe)
 
         # Get optimal weights
-        optimal_weights = self.portfolio_dao.get_optimal_weights_by_date(date=config.data_date)
+        optimal_weights = self.portfolio_dao.get_optimal_weights_by_date(date=self.config.data_date)
 
         # Get optimal shares
         optimal_shares = self.get_optimal_shares(
