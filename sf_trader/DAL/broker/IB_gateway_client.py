@@ -1,4 +1,4 @@
-from sf_trader.dal.broker import BrokerClient
+from sf_trader.dal.broker.broker_client import BrokerClient
 from sf_trader.dal.models.schema_models import PricesDF, OrdersDF, SharesDF
 from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order, OrderCancel
 from ibapi.account_summary_tags import AccountSummaryTags

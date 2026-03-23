@@ -12,20 +12,18 @@ from sf_trader.dal.models.schema_models import (
 from sf_trader.dal.models.portfolio_metrics import PortfolioMetrics
 
 
-class CalculateService():
+class CalculateService:
     def __init__(
-        self, 
+        self,
         config: Config,
-        portfolio_dao: PortfolioDAO | None = None
+        portfolio_dao: PortfolioDAO | None = None,
     ):
-        self.config = Config
+        self.config = config
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
 
 
     @staticmethod
-    def get_dollars(
-        shares: SharesDF, prices: PricesDF
-    ) -> DollarsDF:
+    def get_dollars(shares: SharesDF, prices: PricesDF) -> DollarsDF:
         dollars = (
             shares.join(prices, on="ticker", how="left")
             .with_columns(pl.col("shares").mul("price").alias("dollars"))
@@ -33,7 +31,6 @@ class CalculateService():
         )
 
         return DollarsSchema.validate(dollars)
-    
 
     @staticmethod
     def get_weights_from_dollars(
@@ -44,7 +41,6 @@ class CalculateService():
         ).sort("ticker")
 
         return WeightsSchema.validate(weights)
-    
 
     @staticmethod
     def decompose_weights(
@@ -156,7 +152,7 @@ class CalculateService():
 
     def get_covariance_matrix(self, tickers: list[str]) -> np.ndarray:
         ids = (
-            self.portfolio_dao.get_ticker_barrid_mapping()
+            self.portfolio_dao.get_ticker_barrid_mapping(date=self.config.data_date)
             .join(pl.DataFrame({"ticker": tickers}), on="ticker", how="inner")
             .sort("ticker")
         )

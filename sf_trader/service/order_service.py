@@ -9,16 +9,16 @@ import polars as pl
 
 class OrderService:
     def __init__(
-        self, 
-        config: Config, 
-        portfolio_dao: PortfolioDAO | None = None, 
-        surface_dao: SurfaceDAO | None = None
+        self,
+        config: Config,
+        portfolio_dao: PortfolioDAO | None = None,
+        surface_dao: SurfaceDAO | None = None,
     ):
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
         self.surface_dao = surface_dao or SurfaceDAO(config)
         self.config = config
         self.broker = config.broker
-    
+
 
     def get_write_orders(self) -> OrdersDF:
         """Reads optimal shares and computes orders, then writes orders to surface"""

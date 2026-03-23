@@ -9,10 +9,10 @@ import polars as pl
 
 class PortfolioService:
     def __init__(
-        self, 
-        config: Config, 
-        portfolio_dao: PortfolioDAO | None = None, 
-        surface_dao: SurfaceDAO | None = None
+        self,
+        config: Config,
+        portfolio_dao: PortfolioDAO | None = None,
+        surface_dao: SurfaceDAO | None = None,
     ):
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
         self.surface_dao = surface_dao or SurfaceDAO(config)
@@ -21,9 +21,7 @@ class PortfolioService:
 
 
     @staticmethod
-    def get_optimal_shares(
-        weights: WeightsDF, prices: PricesDF, account_value: float
-    ) -> SharesDF:
+    def get_optimal_shares(weights: WeightsDF, prices: PricesDF, account_value: float) -> SharesDF:
         optimal_shares = (
             weights.join(prices, on="ticker", how="left")
             .with_columns(pl.lit(account_value).mul(pl.col("weight")).alias("dollars"))
@@ -37,10 +35,9 @@ class PortfolioService:
         )
 
         return SharesSchema.validate(optimal_shares)
-    
 
-    def get_write_portfolio(self) -> SharesDF:
-        "Gets the portfolio and writes it to the surface"
+    def get_write_portfolio(self) -> None:
+        """Gets the portfolio and writes it to the surface."""
 
         # Get universe
         universe = self.portfolio_dao.get_universe_by_date(date=self.config.data_date)

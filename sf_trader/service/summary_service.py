@@ -10,11 +10,11 @@ from sf_trader.dal.models.schema_models import (
 )
 
 
-class SummaryService():
+class SummaryService:
     def __init__(
-        self, 
-        config: Config, 
-        portfolio_dao: PortfolioDAO | None = None, 
+        self,
+        config: Config,
+        portfolio_dao: PortfolioDAO | None = None,
         calculate_service: CalculateService | None = None,
     ):
         self.portfolio_dao = portfolio_dao or PortfolioDAO()
@@ -69,7 +69,7 @@ class SummaryService():
             portfolio_metrics
         )
 
-        # Generate top long positiosn table
+        # Generate top long positions table
         top_long_positions = self.calculate_service.get_top_long_positions(
             shares=shares,
             prices=prices,

@@ -1,6 +1,6 @@
-from sf_trader.dal.broker import get_broker
-
 import yaml
+
+from sf_trader.dal.broker import get_broker
 
 _config = None
 

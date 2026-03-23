@@ -7,7 +7,7 @@ from sf_trader.dal.models.portfolio_metrics import PortfolioMetrics
 class UIService:
     def __init__(self):
         pass
-    
+
     @staticmethod
     def generate_portfolio_metrics_table(metrics: PortfolioMetrics) -> Table:
         # Create metrics table

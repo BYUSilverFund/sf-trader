@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from sf_trader.dal.models import PricesDF, OrdersDF, SharesDF
+from sf_trader.dal.models.schema_models import PricesDF, OrdersDF, SharesDF
 
 
 class BrokerClient(ABC):

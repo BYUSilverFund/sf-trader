@@ -1,4 +1,4 @@
-from sf_trader.dal.broker import BrokerClient
+from sf_trader.dal.broker.broker_client import BrokerClient
 import polars as pl
 
 from sf_trader.dal.models.schema_models import PricesDF, OrdersDF, SharesDF, SharesSchema

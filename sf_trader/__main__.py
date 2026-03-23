@@ -2,9 +2,7 @@ import click
 from pathlib import Path
 
 from sf_trader.config import Config
-
 from sf_trader.dal.dao.surface_dao import SurfaceDAO
-
 from sf_trader.service.order_service import OrderService
 from sf_trader.service.portfolio_service import PortfolioService
 from sf_trader.service.summary_service import SummaryService
