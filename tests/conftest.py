@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import create_autospec
 
+import polars as pl
 import pytest
 
 from sf_trader.dal.dao.portfolio_dao import PortfolioDAO
@@ -11,6 +12,20 @@ class FakeBroker:
     def get_account_value(self) -> float:
         return 1000.0
 
+    def get_positions(self) -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "ticker": [],
+                "shares": [],
+            }
+        )
+
+    def post_orders(self, orders: pl.DataFrame) -> None:
+        pass
+
+    def cancel_orders(self) -> None:
+        pass
+
 
 @pytest.fixture
 def broker():
@@ -20,9 +35,17 @@ def broker():
 @pytest.fixture
 def fake_config(broker):
     broker.get_account_value.return_value = 1000.0
+    broker.get_positions.return_value = pl.DataFrame(
+        {
+            "ticker": [],
+            "shares": [],
+        }
+    )
+
     return SimpleNamespace(
         data_date="2026-03-25",
         broker=broker,
+        ignore_tickers=[],
     )
 
 
