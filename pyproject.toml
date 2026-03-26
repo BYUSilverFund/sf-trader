@@ -6,11 +6,28 @@ readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
     "dataframely>=2.1.0",
+    "ibapi",
     "sf-quant>=0.1.15",
     "tqdm>=4.67.1",
 ]
 
 [dependency-groups]
 dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.15.1",
     "rich>=14.2.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "integration: marks tests as integration tests",
+]
+
+[tool.uv.sources]
+ibapi = { path = "../../ibkr/IBJts/source/pythonclient" }
+
+[tool.setuptools.packages.find]
+include = ["sf_trader*"]

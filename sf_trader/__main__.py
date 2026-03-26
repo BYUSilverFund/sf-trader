@@ -1,14 +1,11 @@
 import click
 from pathlib import Path
 
-import polars as pl
-
-import portfolio
-import orders
-import portfolio_summary
-import orders_summary
-from config import Config
-from components.models import Orders, Shares
+from sf_trader.config import Config
+from sf_trader.dal.dao.surface_dao import SurfaceDAO
+from sf_trader.service.order_service import OrderService
+from sf_trader.service.portfolio_service import PortfolioService
+from sf_trader.service.summary_service import SummaryService
 
 
 @click.group()
@@ -25,17 +22,11 @@ def cli():
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--output-file-path",
-    "-o",
-    type=click.Path(exists=False, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-def get_portfolio(config_path: Path, output_file_path: Path):
+def get_portfolio(config_path: Path):
     config = Config(config_path)
-    portfolio_ = portfolio.get_portfolio(config)
-    portfolio_.write_csv(output_file_path)
+    portfolio_service = PortfolioService(config)
+
+    portfolio_service.get_write_portfolio()
 
 
 @cli.command()
@@ -46,25 +37,11 @@ def get_portfolio(config_path: Path, output_file_path: Path):
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--portfolio-path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-@click.option(
-    "--output-file-path",
-    "-o",
-    type=click.Path(exists=False, path_type=Path),
-    default="orders.csv",
-    help="Path to orders file",
-)
-def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
+def get_orders(config_path: Path):
     config = Config(config_path)
-    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
-    orders_ = orders.get_orders(optimal_shares=portfolio_, config=config)
-    orders_.write_csv(output_file_path)
+    order_service = OrderService(config=config)
+
+    order_service.get_write_orders()
 
 
 @cli.command()
@@ -75,17 +52,13 @@ def get_orders(config_path: Path, portfolio_path: Path, output_file_path: Path):
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--portfolio-path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-def get_portfolio_summary(config_path: Path, portfolio_path: Path):
+def get_portfolio_summary(config_path: Path):
     config = Config(config_path)
-    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
-    portfolio_summary.get_portfolio_summary(shares=portfolio_, config=config)
+    surface_dao = SurfaceDAO(config)
+    summary_service = SummaryService(config)
+
+    portfolio = surface_dao.read_portfolio()
+    summary_service.get_portfolio_summary(shares=portfolio)
 
 
 @cli.command()
@@ -96,27 +69,14 @@ def get_portfolio_summary(config_path: Path, portfolio_path: Path):
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--portfolio-path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    default="portfolio.csv",
-    help="Path to portfolio file",
-)
-@click.option(
-    "--orders-path",
-    "-o",
-    type=click.Path(exists=True, path_type=Path),
-    default="orders.csv",
-    help="Path to orders file",
-)
-def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Path):
+def get_orders_summary(config_path: Path):
     config = Config(config_path)
-    orders_ = Orders.validate(pl.read_csv(orders_path))
-    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
-    orders_summary.get_orders_summary(
-        shares=portfolio_, orders=orders_, config=config
-    )
+    surface_dao = SurfaceDAO(config)
+    summary_service = SummaryService(config)
+
+    orders = surface_dao.read_orders()
+    portfolio = surface_dao.read_portfolio()
+    summary_service.get_orders_summary(shares=portfolio, orders=orders)
 
 
 @cli.command()
@@ -127,17 +87,11 @@ def get_orders_summary(config_path: Path, portfolio_path: Path, orders_path: Pat
     default="config.yml",
     help="Path to configuration file",
 )
-@click.option(
-    "--orders-path",
-    "-o",
-    type=click.Path(exists=True, path_type=Path),
-    default="orders.csv",
-    help="Path to orders file.",
-)
-def post_orders(config_path: Path, orders_path: Path):
+def post_orders(config_path: Path):
     config = Config(config_path)
-    orders_ = Orders.validate(pl.read_csv(orders_path))
-    orders.post_orders(orders=orders_, config=config)
+    order_service = OrderService(config)
+
+    order_service.post_orders()
 
 
 @cli.command()
@@ -150,7 +104,9 @@ def post_orders(config_path: Path, orders_path: Path):
 )
 def cancel_orders(config_path: Path):
     config = Config(config_path)
-    orders.cancel_orders(config=config)
+    order_service = OrderService(config=config)
+
+    order_service.cancel_orders()
 
 
 @cli.command()

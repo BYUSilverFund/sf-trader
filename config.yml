@@ -1,15 +1,3 @@
-signals:
-- momentum
-- reversal
-- beta
-ic: .05
-signal-combinator: mean
-constraints:
-- full-investment
-- long-only
-- no-buying-on-margin
-- unit-beta
-gamma: 500
 decimal-places: 4
 data-date: 2025-11-26
 ignore-tickers:

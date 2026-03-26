@@ -1,7 +1,7 @@
-from broker.client import BrokerClient
-import dataframely as dy
+from sf_trader.dal.broker.broker_client import BrokerClient
 import polars as pl
-from components.models import Prices, Orders, Shares
+
+from sf_trader.dal.models.schema_models import PricesDF, OrdersDF, SharesDF, SharesSchema
 from ibapi.sync_wrapper import TWSSyncWrapper, Contract, Order, OrderCancel
 from ibapi.account_summary_tags import AccountSummaryTags
 from rich import print
@@ -29,7 +29,7 @@ class IBKRClient(BrokerClient):
         """Convert ticker format from BRK B to BRK.B from IBKR API."""
         return ticker.replace(" ", ".")
 
-    def get_prices(self, tickers: list[str]) -> dy.DataFrame[Prices]:
+    def get_prices(self, tickers: list[str]) -> PricesDF:
         prices_list = []
 
         for ticker in tqdm(tickers, desc="Fetching prices", disable=True):
@@ -74,7 +74,7 @@ class IBKRClient(BrokerClient):
         )
         return float(net_liquidation_value)
 
-    def post_orders(self, orders: dy.DataFrame[Orders]) -> None:
+    def post_orders(self, orders: OrdersDF) -> None:
         for order_ in orders.to_dicts():
             try:
                 contract = Contract()
@@ -107,7 +107,7 @@ class IBKRClient(BrokerClient):
 
             time.sleep(0.1)
 
-    def get_positions(self) -> dy.DataFrame[Shares]:
+    def get_positions(self) -> SharesDF:
         positions_summary: dict[str, list[dict]] = self._app.get_positions()
         client_account_id = list(positions_summary.keys())[0]
         positions_raw = positions_summary.get(client_account_id)
@@ -124,7 +124,7 @@ class IBKRClient(BrokerClient):
 
         positions = pl.DataFrame(positions_list)
 
-        return Shares.validate(positions)
+        return SharesSchema.validate(positions)
 
     def cancel_orders(self) -> None:
         try:
@@ -161,7 +161,3 @@ class IBKRClient(BrokerClient):
 
     def __del__(self) -> None:
         self._app.disconnect_and_stop()
-
-
-def ibrk_client() -> IBKRClient:
-    return IBKRClient()
