@@ -50,7 +50,7 @@ class PortfolioDAO(Database):
             .collect()
             .get_column("ticker")
             .unique()
-            .sort("ticker")
+            .sort()
             .to_list()
         )
 
