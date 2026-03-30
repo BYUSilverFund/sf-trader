@@ -5,6 +5,6 @@ ignore-tickers:
 - VELO
 - BGXXQ
 - PSTX.CVR
-broker: test
+broker: ib
 orders-path: data/orders.csv
 portfolio-path: data/portfolio.csv

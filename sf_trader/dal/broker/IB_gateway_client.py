@@ -19,6 +19,7 @@ class IBGatewayClient(BrokerClient):
         connect: bool = True,
     ) -> None:
         self._app = app or TWSSyncWrapper(timeout=timeout)
+        self._install_ib_message_filter()
 
         if connect:
             if not self._app.connect_and_start(
@@ -27,7 +28,38 @@ class IBGatewayClient(BrokerClient):
                 client_id=client_id,
             ):
                 raise RuntimeError("Failed to connect to IB Gateway")
+            
+        print("Connected to IB Gateway")
 
+    def _install_ib_message_filter(self) -> None:
+        original_error = self._app.error
+
+        info_codes = {2104, 2106, 2107, 2108, 2158}
+        warning_codes = {2103, 2105, 2110, 1100, 1101, 1102}
+
+        def filtered_error(*args):
+            advanced_json = ""
+
+            if len(args) == 4:
+                req_id, error_code, error_string, advanced_json = args
+                error_time = None
+            elif len(args) == 5:
+                req_id, error_time, error_code, error_string, advanced_json = args
+            else:
+                return original_error(*args)
+
+            if error_code in info_codes:
+                print(f"INFO {req_id} {error_code} {error_string}")
+                return
+
+            if error_code in warning_codes:
+                print(f"WARN {req_id} {error_code} {error_string}")
+                return
+
+            return original_error(*args)
+
+        self._app.error = filtered_error
+    
     @staticmethod
     def _convert_ticker_to_ibkr_format(ticker: str) -> str:
         """Convert ticker format from BRK.B to BRK B for IBKR API."""
