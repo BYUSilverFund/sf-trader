@@ -24,6 +24,7 @@ class SurfaceDAO:
 
         return OrdersSchema.validate(pl.read_csv(path_))
 
+
     def write_portfolio(self, shares: SharesDF) -> None:
         path_ = self.config.portfolio_path
         shares.write_csv(path_)

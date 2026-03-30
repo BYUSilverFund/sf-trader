@@ -1,8 +1,10 @@
 decimal-places: 4
-data-date: 2026-3-30
+data-date: 2025-3-31
 ignore-tickers:
 - MONDQ
 - VELO
 - BGXXQ
 - PSTX.CVR
 broker: test
+orders-path: data/orders.csv
+portfolio-path: data/portfolio.csv

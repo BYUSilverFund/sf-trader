@@ -114,7 +114,7 @@ class SummaryService:
 
         # Create combined shares dataframe with both current and optimal shares
         combined_shares = self.get_combined_shares(
-            current_shares=current_shares, optimal_shares=shares, config=self.config
+            current_shares=current_shares, optimal_shares=shares
         )
 
         # Get top 10 long positions from current shares

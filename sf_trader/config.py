@@ -39,6 +39,15 @@ class Config:
             self.data_date = dt.datetime.strptime(data_date_raw, "%Y-%m-%d").date()
         except ValueError as e:
             raise ConfigError(f"Invalid data-date format (expected YYYY-MM-DD): {e}")
+        
+        # Get paths
+        try:
+            self.orders_path = raw_config.get("orders-path")
+            self.portfolio_path = raw_config.get("portfolio-path")
+            if not self.orders_path or not self.portfolio_path:
+                raise ConfigError("'orders-path' and 'portfolio-path' are required")
+        except ValueError as e:
+            raise ConfigError(f"Invalid path configuration: {e}")
 
         # Get broker
         broker_name = raw_config.get("broker")

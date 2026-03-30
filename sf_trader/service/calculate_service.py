@@ -97,7 +97,7 @@ class CalculateService:
             dollars_allocated=dollars_allocated,
         )
 
-
+    @staticmethod
     def get_top_long_positions(
         shares: SharesDF,
         prices: PricesDF,

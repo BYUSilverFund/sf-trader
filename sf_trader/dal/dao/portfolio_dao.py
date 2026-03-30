@@ -50,7 +50,7 @@ class PortfolioDAO(Database):
             .collect()
             .get_column("ticker")
             .unique()
-            .sort()
+            .sort("ticker")
             .to_list()
         )
 
@@ -89,7 +89,7 @@ class PortfolioDAO(Database):
         .collect()
         .select(["ticker", "barrid"])
         .unique()
-        .sort()
+        .sort("ticker")
         )
 
         return mapping
