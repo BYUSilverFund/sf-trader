@@ -39,6 +39,8 @@ class PortfolioService:
     def get_write_portfolio(self) -> None:
         """Gets the portfolio and writes it to the surface."""
 
+        print(self.config.data_date)
+        
         # Get universe
         universe = self.portfolio_dao.get_universe_by_date(date=self.config.data_date)
 

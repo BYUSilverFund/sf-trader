@@ -1,8 +1,8 @@
 decimal-places: 4
-data-date: 2025-11-26
+data-date: 2026-3-30
 ignore-tickers:
 - MONDQ
 - VELO
 - BGXXQ
 - PSTX.CVR
-broker: ibkr
+broker: test

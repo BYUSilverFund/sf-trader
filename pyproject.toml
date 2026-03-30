@@ -31,3 +31,6 @@ ibapi = { path = "../../ibkr/IBJts/source/pythonclient" }
 
 [tool.setuptools.packages.find]
 include = ["sf_trader*"]
+
+[project.scripts]
+sf_trader = "sf_trader.__main__:cli"

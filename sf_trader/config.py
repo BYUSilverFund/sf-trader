@@ -1,4 +1,5 @@
 import yaml
+import datetime as dt
 
 from sf_trader.dal.broker import get_broker
 
@@ -32,9 +33,10 @@ class Config:
 
         # Get data date
         try:
-            self.data_date = raw_config.get("data-date")
-            if not self.data_date:
+            data_date_raw = raw_config.get("data-date")
+            if not data_date_raw:
                 raise ConfigError("'data-date' is required")
+            self.data_date = dt.datetime.strptime(data_date_raw, "%Y-%m-%d").date()
         except ValueError as e:
             raise ConfigError(f"Invalid data-date format (expected YYYY-MM-DD): {e}")
 

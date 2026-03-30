@@ -48,7 +48,7 @@ python pipelines ftse backfill --database production
 
 ```bash
 python pipelines barra backfill --database production
-python piplines barra update --pdatabase roduction
+python piplines barra update --database production
 ```
 
 2. Generate portfolios
