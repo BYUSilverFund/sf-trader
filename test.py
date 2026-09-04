@@ -148,7 +148,12 @@ def get_alphas(assets) -> pl.DataFrame:
     # print(alphas)
     return alphas
 
+
 if __name__ == "__main__":
-    alphas = get_alphas(assets)
-    with pl.Config(tbl_cols=-1):
-        print(alphas)
+    import os
+
+    path = "/Users/nathanpreslar/groups/grp_quant/database/production/assets/assets_2026.parquet"
+
+    df = pl.read_parquet(path)
+    print(df)
+    

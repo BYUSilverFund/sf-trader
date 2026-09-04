@@ -12,7 +12,7 @@ constraints:
   - unit-beta
 gamma: 170
 decimal-places: 4
-data-date: 2026-02-26
+data-date: 2026-03-31
 ignore-tickers:
   - MONDQ
   - VELO

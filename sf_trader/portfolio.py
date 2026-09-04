@@ -15,6 +15,7 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
 
     # Get universe
     universe = utils.data.get_universe()
+    # print(universe)
 
     # Get account value
     account_value = broker.get_account_value()
@@ -24,6 +25,7 @@ def get_portfolio(config: Config) -> dy.DataFrame[Shares]:
 
     # Get tradable universe
     tradable_universe = utils.functions.get_tradable_universe(prices=prices)
+    # print(tradable_universe)
 
     # Get asset data
     assets = utils.data.get_assets(tickers=tradable_universe)
