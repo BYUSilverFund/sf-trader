@@ -10,9 +10,9 @@ constraints:
   - long-only
   - no-buying-on-margin
   - unit-beta
-gamma: 170
+gamma: 1000000
 decimal-places: 4
-data-date: 2026-03-31
+data-date: 2026-09-10
 ignore-tickers:
   - MONDQ
   - VELO

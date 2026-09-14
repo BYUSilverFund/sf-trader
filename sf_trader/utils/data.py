@@ -17,8 +17,11 @@ def set_config(config: Config) -> None:
 def get_universe() -> list[str]:
     return (
         sfd.load_assets_by_date(
-            date_=_config.data_date, columns=["ticker"], in_universe=True
-        )["ticker"]
+            date_=_config.data_date, columns=["ticker", "in_universe"], in_universe=False
+        )
+        .filter(pl.col("ticker").is_not_null())
+        .filter(pl.col("in_universe").fill_null(True))
+        ["ticker"]
         .unique()
         .sort()
         .to_list()
@@ -28,7 +31,7 @@ def get_universe() -> list[str]:
 def get_prices(tickers: list[str]) -> dy.DataFrame[Prices]:
     prices = (
         sfd.load_assets_by_date(
-            date_=_config.data_date, columns=["ticker", "price"], in_universe=True
+            date_=_config.data_date, columns=["ticker", "price"], in_universe=False
         )
         .filter(pl.col("ticker").is_in(tickers))
         .sort("ticker")
@@ -56,13 +59,14 @@ def get_assets(tickers: list[str]) -> dy.DataFrame[Assets]:
 
     asset_data = (
         sfd.load_assets(
-            start=start_date, end=end_date, columns=columns, in_universe=True
+            start=start_date, end=end_date, columns=columns, in_universe=False
         )
         .with_columns(
             pl.col("return").truediv(100),
             pl.col("specific_return").truediv(100),
         )
         .filter(pl.col("ticker").is_in(tickers))
+        .filter(pl.col("return").is_not_null())
         .sort("ticker", "date")
     )
 
@@ -74,7 +78,7 @@ def get_betas(tickers: list[str]) -> dy.DataFrame[Betas]:
         sfd.load_assets_by_date(
             date_=_config.data_date,
             columns=["ticker", "predicted_beta"],
-            in_universe=True,
+            in_universe=False,
         )
         .filter(pl.col("ticker").is_in(tickers))
         .sort("ticker")
@@ -85,7 +89,7 @@ def get_betas(tickers: list[str]) -> dy.DataFrame[Betas]:
 
 def get_ticker_barrid_mapping() -> pl.DataFrame:
     mapping = sfd.load_assets_by_date(
-        date_=_config.data_date, columns=["ticker", "barrid"], in_universe=True
+        date_=_config.data_date, columns=["ticker", "barrid"], in_universe=False
     )
 
     return mapping
@@ -96,9 +100,12 @@ def get_benchmark_weights() -> dy.DataFrame[Weights]:
         sfd.load_assets(
             start=_config.data_date,
             end=_config.data_date,
-            in_universe=True,
-            columns=["date", "ticker", "market_cap"],
+            in_universe=False,
+            columns=["date", "ticker", "market_cap", "in_universe"],
         )
+        .filter(pl.col("ticker").is_not_null())
+        .filter(pl.col("in_universe").fill_null(True))
+        .drop("in_universe")
         .select(
             "ticker",
             pl.col("market_cap")
@@ -113,13 +120,17 @@ def get_benchmark_weights() -> dy.DataFrame[Weights]:
 def get_covariance_matrix(tickers: list[str]) -> np.ndarray:
     ids = (
         get_ticker_barrid_mapping()
-        .join(pl.DataFrame({"ticker": tickers}), on="ticker", how="inner")
+        .join(pl.DataFrame({"ticker": tickers}, schema={"ticker": pl.String}), on="ticker", how="inner")
         .sort("ticker")
     )
 
     tickers_ = ids["ticker"].to_list()
     barrids = ids["barrid"].to_list()
     sorted_barrids = sorted(barrids)
+
+    if not sorted_barrids:
+        raise ValueError(f"No barrids found for tickers: {tickers}")
+
     mapping = {barrid: ticker for barrid, ticker in zip(barrids, tickers_)}
 
     covariance_matrix = (
