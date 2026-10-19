@@ -7,6 +7,7 @@ import portfolio
 import orders
 import portfolio_summary
 import orders_summary
+import transfer_coefficient
 from config import Config
 from components.models import Orders, Shares
 
@@ -151,6 +152,30 @@ def post_orders(config_path: Path, orders_path: Path):
 def cancel_orders(config_path: Path):
     config = Config(config_path)
     orders.cancel_orders(config=config)
+
+
+@cli.command()
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True, path_type=Path),
+    default="config.yml",
+    help="Path to configuration file",
+)
+@click.option(
+    "--portfolio-path",
+    "-p",
+    type=click.Path(exists=True, path_type=Path),
+    default="portfolio.csv",
+    help="Path to portfolio file",
+)
+def get_transfer_coefficient(config_path: Path, portfolio_path: Path):
+    """Compare optimal active weights to active weights after fills"""
+    config = Config(config_path)
+    portfolio_ = Shares.validate(pl.read_csv(portfolio_path))
+    transfer_coefficient.get_transfer_coefficient(
+        optimal_shares=portfolio_, config=config
+    )
 
 
 @cli.command()

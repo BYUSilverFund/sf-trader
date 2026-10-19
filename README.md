@@ -83,3 +83,10 @@ python sf_trader post-orders
 ```bash
 python sf_trader cancel-orders
 ```
+
+7. Check transfer coefficient
+- After orders fill, compare the optimal active weights (`portfolio.csv`) to the active weights of the positions actually held.
+
+```bash
+python sf_trader get-transfer-coefficient
+```

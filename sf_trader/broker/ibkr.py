@@ -88,7 +88,7 @@ class IBKRClient(BrokerClient):
                 order = Order()
                 order.action = order_.get("action")
                 order.orderType = "MKT"
-                order.totalQuantity = order_.get("shares")
+                order.totalQuantity = round(order_.get("shares"), 4)
                 order.tif = 'DAY'
 
                 self._app.place_order_sync(contract, order)

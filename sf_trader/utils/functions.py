@@ -149,7 +149,7 @@ def get_optimal_shares(
         weights.join(prices, on="ticker", how="left")
         .with_columns(pl.lit(account_value).mul(pl.col("weight")).alias("dollars"))
         .with_columns(
-            pl.col("dollars").truediv(pl.col("price")).floor().alias("shares")
+            pl.col("dollars").truediv(pl.col("price")).round(4).alias("shares")
         )
         .select(
             "ticker",
@@ -254,6 +254,21 @@ def decompose_weights(
     active_weights = decomposed_weights["weight_act"].to_numpy()
 
     return total_weights, active_weights
+
+
+def get_transfer_coefficient(
+    optimal_active: np.ndarray,
+    realized_active: np.ndarray,
+    covariance_matrix: np.ndarray,
+) -> tuple[float, float]:
+    """Correlation of optimal vs realized active weights, plain and risk-adjusted."""
+    tc = np.corrcoef(optimal_active, realized_active)[0, 1]
+
+    # Risk-adjust by the Cholesky factor: w_adj = L' w, so w_adj' w_adj = w' S w
+    chol = np.linalg.cholesky(covariance_matrix).T
+    tc_risk_adj = np.corrcoef(chol @ optimal_active, chol @ realized_active)[0, 1]
+
+    return float(tc), float(tc_risk_adj)
 
 
 def compute_mcar_pcar(
