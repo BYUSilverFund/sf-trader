@@ -1,6 +1,6 @@
 # Pipeline Reference
 
-How `python -m sf_trader --config config.yaml` works, what it reads and writes, and how to fix common problems. For setup and the trading steps, see the [README](../README.md).
+How `python -m sf_trader --config config.yaml` works, what it reads and writes, and how to fix common problems. For setup and the trading steps, see the [README](../README.md). For limit pricing, refreshes and the basket file format, see [limit_orders.md](limit_orders.md).
 
 ## Pipeline steps
 
@@ -11,12 +11,14 @@ How `python -m sf_trader --config config.yaml` works, what it reads and writes, 
 | 3 | Re-apply the universe filter | `universe.py` |
 | 4 | Combine the signals | `combine.py` |
 | 5 | Remove `do_not_trade` names | `universe.py` |
-| 6 | Read positions and capital from TWS | `ibkr.py` |
-| 7 | Optimize and write `portfolio.csv` | `optimize.py` |
-| 8 | Fetch quotes, diff against holdings, set limit prices and write `orders.csv` | `ibkr.py`, `orders.py` |
+| 6 | Stop if TWS has working orders, then read positions and capital | `ibkr.py` |
+| 7 | Optimize | `optimize.py` |
+| 8 | Fetch quotes, fix target shares, write `portfolio.csv`, diff against holdings, set limit prices and write `orders.csv` | `ibkr.py`, `orders.py` |
 | 9 | Compute metrics and write the charts | `metrics.py`, `charts.py` |
 
 TWS is contacted before the optimizer runs, so a connection problem fails quickly.
+
+`--refresh` skips steps 2 to 7. It loads the saved `portfolio.csv`, repeats the working-order check, and writes only `orders_refresh.csv`.
 
 ### Alpha date
 Alphas dated D are traded on the next session, which matches the one-day weight lag in the backtests. The run uses the latest alpha date before `trade_date`. So `trade_date: 2026-11-02` (a Monday) uses alphas from Friday 2026-10-30.
@@ -37,25 +39,13 @@ Drop counts are printed as a warning.
 These names are excluded from the optimizer and never get an order, and held positions stay as they are. When `orders.capital` is `net_liq`, their market value is subtracted from capital. A holding with no price is valued at 0 with a warning.
 
 ### Orders
-- Target shares are `weight × capital / mid`, compared against current holdings.
+- Target shares are `weight × capital / mid`, fixed at that run's quotes and saved in `portfolio.csv`, then compared against current holdings.
 - Quantities have up to 4 decimals. Contracts report a 0.0001 size increment.
 - Holdings outside the portfolio are sold in full.
 - Trades below `orders.min_trade_value` are skipped.
 
 ### Limit prices
-`α` is `orders.limit_aggressiveness`.
-
-| Side | Limit price | Rounding |
-|---|---|---|
-| Buy | `mid + α × (ask − mid)` | Down to the tick |
-| Sell | `mid − α × (mid − bid)` | Up to the tick |
-
-So `α = 0` is the midpoint and `α = 1` is the far side of the quote.
-
-Missing, one-sided or crossed quotes follow `orders.quote_fallback`:
-
-- `skip` (default) skips the ticker and lists it in a warning.
-- `last` prices the ticker at last, then close. Those limits ignore the spread, so use this only for testing outside market hours.
+See [limit_orders.md](limit_orders.md).
 
 ### Transfer coefficient
 `order_metrics.png` shows the correlation between optimal active weights and two sets of holdings, each plain and risk-adjusted:
@@ -122,6 +112,7 @@ ibkr:
 | `orders.min_trade_value` | Yes | Smallest trade in dollars |
 | `orders.capital` | Yes | `net_liq` or a fixed dollar amount |
 | `orders.quote_fallback` | No | `skip` (default) or `last` |
+| `orders.refresh_aggressiveness` | No | `α` for `--refresh`, from 0 to 1. Default 0.75. `--aggressiveness` overrides it |
 | `ibkr.host`, `ibkr.port`, `ibkr.client_id` | Yes | TWS connection |
 
 ### Tuning risk aversion
@@ -165,31 +156,13 @@ Russell 3000 membership comes from monthly FTSE Russell snapshots, which `assets
 | `weight` | Target weight of capital |
 | `combined_alpha` | Combined alpha |
 | `price` | Close on the alpha date |
-| `shares` | Estimate at that close. Orders use live mids instead |
+| `target_shares` | Target position at the run's mids. `--refresh` uses this, and names without a quote keep an estimate at the close |
 
-### `orders.csv`
-Field names follow IBKR's [Basket Fields](https://ibkrguides.com/traderworkstation/basket-fields.htm) guide.
-
-```csv
-Action,Quantity,Symbol,SecType,Exchange,Currency,TimeInForce,OrderType,LmtPrice,BasketTag
-BUY,164.8426,AAPL,STK,SMART/NASDAQ,USD,DAY,LMT,344.63,SF_20261102
-```
-
-| Column | Value |
-|---|---|
-| `Action` | `BUY` or `SELL` |
-| `Quantity` | Shares, with up to 4 decimals |
-| `Symbol` | IBKR symbol. Class shares use a space, so `BRK.B` becomes `BRK B` |
-| `SecType` | `STK` |
-| `Exchange` | `SMART/<primary exchange>`, or `SMART` if the primary exchange is unknown |
-| `Currency` | `USD` |
-| `TimeInForce` | `DAY` |
-| `OrderType` | `LMT` |
-| `LmtPrice` | Limit price |
-| `BasketTag` | `SF_<trade date>` |
+### `orders.csv` and `orders_refresh.csv`
+See [the basket file format](limit_orders.md#basket-file-format).
 
 ## Read-only access
-`ibkr.py` only requests account summary, positions, contract details and market data. A test fails if any module in `sf_trader` calls an order or cancel method. Ticking **Read-Only API** in TWS adds a second safeguard.
+`ibkr.py` only requests account summary, positions, open orders, contract details and market data. Open orders are read with `reqAllOpenOrders`, which doesn't bind them to the client. A test fails if any module in `sf_trader` calls an order or cancel method. Ticking **Read-Only API** in TWS adds a second safeguard.
 
 The client doesn't use some `ibapi.sync_wrapper` helpers:
 
@@ -212,14 +185,17 @@ Market data requests are grouped into batches of 90 to stay under the default li
 | `orders.csv` has only a header | Every ticker was skipped, or holdings already match targets | Read the run's warnings |
 | `<signal> covers only N% of the universe` | The signal is missing for many names | Check the pipeline. The run continues and counts missing values as 0 |
 | `No module named 'ibapi'` | A plain `uv sync` removed it | Reinstall from `IBJts` and use `uv sync --inexact` from then on |
-| BasketTrader rejects the file | Format problem | Compare with a basket exported from TWS, as covered under known limitations |
+| BasketTrader rejects the file | Format problem | Compare with a basket exported from TWS using **Save Orders as Basket** |
+| `working orders in TWS` | Orders are still open, and new ones would double up | Cancel them in TWS and run again |
+| `tagged [...], not SF_...` | `--refresh` date differs from the day's full run | Use the same `trade_date`, or do a full run |
+| `has no target_shares column` | `portfolio.csv` was written before refresh existed | Do a full run |
 
 ## Known limitations
-As of 2026-11-01:
+As of 2026-11-02:
 
-- **Upload format isn't confirmed.** No `orders.csv` has been uploaded to BasketTrader yet. IBKR's guides don't confirm decimal `Quantity` values, and they show `Smart/NYSE`-style destinations only as an example. Test with a small basket, or export one from TWS with **Save Orders as Basket** and compare the headers.
+- **Sizes are being rounded.** BasketTrader accepted the file on 2026-11-02, but fractional quantities were changed to round lots, leaving the paper account about 129% invested. The cause isn't confirmed. See [size rounding](limit_orders.md#warning-size-rounding).
+- **Some orders are unexplained.** `EGY`, `KWY`, `LAND` and `UTMD` had no position, working order or completed record that day. Check them in TWS.
 - **Limit orders with fractional shares.** IBKR notes that the fractional part of an unmarketable limit order may not execute until it becomes marketable.
-- **No live quote run yet.** Runs so far were outside market hours, so limit prices have only been tested on made-up quotes and closes.
 - **Delayed quotes.** The paper account has no live market data subscription, so limit prices use delayed quotes unless one is added.
 - **`barra_momentum` coverage.** A Barra gap on Jun 22–26, 2026 leaves about 2% of the universe with a value. The fix in `sf-data-pipelines-quant` is on branch `fix/universe-filter-before-scores` and hasn't been deployed.
 - **Sub-$5 names in z-scores.** Until that fix is deployed, the pipeline scores these names before sf-trader removes them, which distorts the other names' scores.
