@@ -30,6 +30,7 @@ class OrderSettings:
     min_trade_value: float
     capital: str | float
     quote_fallback: str = "skip"
+    refresh_aggressiveness: float = 0.75
 
 
 @dataclass(frozen=True)
@@ -127,7 +128,13 @@ def _parse_orders(raw: dict) -> OrderSettings:
     section = _section(
         raw,
         "orders",
-        {"limit_aggressiveness", "min_trade_value", "capital", "quote_fallback"},
+        {
+            "limit_aggressiveness",
+            "min_trade_value",
+            "capital",
+            "quote_fallback",
+            "refresh_aggressiveness",
+        },
         {"limit_aggressiveness", "min_trade_value", "capital"},
     )
 
@@ -136,6 +143,12 @@ def _parse_orders(raw: dict) -> OrderSettings:
     )
     if not 0 <= aggressiveness <= 1:
         raise ConfigError("'orders.limit_aggressiveness' must be in [0, 1]")
+
+    refresh_aggressiveness = _number(
+        section.get("refresh_aggressiveness", 0.75), "orders.refresh_aggressiveness"
+    )
+    if not 0 <= refresh_aggressiveness <= 1:
+        raise ConfigError("'orders.refresh_aggressiveness' must be in [0, 1]")
 
     min_trade_value = _number(section["min_trade_value"], "orders.min_trade_value")
     if min_trade_value < 0:
@@ -156,6 +169,7 @@ def _parse_orders(raw: dict) -> OrderSettings:
         min_trade_value=min_trade_value,
         capital=capital,
         quote_fallback=quote_fallback,
+        refresh_aggressiveness=refresh_aggressiveness,
     )
 
 

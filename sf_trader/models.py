@@ -32,7 +32,7 @@ class Portfolio(dy.Schema):
     weight = dy.Float64(nullable=False)
     combined_alpha = dy.Float64(nullable=False)
     price = dy.Float64(nullable=False)
-    shares = dy.Float64(nullable=False)
+    target_shares = dy.Float64(nullable=False)
 
 
 class Orders(dy.Schema):

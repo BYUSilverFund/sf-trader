@@ -24,20 +24,35 @@ BASKET_COLUMNS = [
 ]
 
 
-def round_to_tick(price: float, tick: float, side: str) -> float:
-    """Round to a valid tick, never paying more on a buy or receiving less on a sell."""
+def round_to_tick(price: float, tick: float, side: str, toward_market: bool = False) -> float:
+    """Round to a valid tick.
+
+    By default a buy rounds down and a sell rounds up, so rounding never costs
+    anything. With toward_market the direction flips, which gets stalled orders
+    filled on one-tick spreads, where any other rounding lands back on the near touch.
+    """
     steps = price / tick
-    steps = math.floor(steps + 1e-9) if side == "BUY" else math.ceil(steps - 1e-9)
+    round_down = (side == "BUY") != toward_market
+    steps = math.floor(steps + 1e-9) if round_down else math.ceil(steps - 1e-9)
     decimals = max(0, -math.floor(math.log10(tick)))
     return round(steps * tick, decimals)
 
 
-def limit_price(side: str, bid: float, ask: float, aggressiveness: float, tick: float) -> float:
+def limit_price(
+    side: str,
+    bid: float,
+    ask: float,
+    aggressiveness: float,
+    tick: float,
+    toward_market: bool = False,
+) -> float:
     """Pay the configured fraction of the half-spread beyond mid, staying inside the quote."""
     mid = (bid + ask) / 2
     if side == "BUY":
-        return round_to_tick(mid + aggressiveness * (ask - mid), tick, side)
-    return round_to_tick(mid - aggressiveness * (mid - bid), tick, side)
+        price = mid + aggressiveness * (ask - mid)
+    else:
+        price = mid - aggressiveness * (mid - bid)
+    return round_to_tick(price, tick, side, toward_market)
 
 
 def resolve_prices(
@@ -61,35 +76,54 @@ def resolve_prices(
     )
 
 
+def compute_targets(
+    portfolio: dy.DataFrame[Portfolio],
+    quotes: dy.DataFrame[Quotes],
+    settings: OrderSettings,
+    capital: float,
+) -> dy.DataFrame[Portfolio]:
+    """Fix target shares at current mids. Names without a quote keep their close-based estimate."""
+    priced = resolve_prices(quotes, settings).select("ticker", "reference_price")
+    return Portfolio.validate(
+        portfolio.join(priced, on="ticker", how="left")
+        .with_columns(
+            pl.col("weight")
+            .mul(capital)
+            .truediv(pl.col("reference_price"))
+            .round(SHARE_DECIMALS)
+            .fill_null(pl.col("target_shares"))
+            .alias("target_shares")
+        )
+        .drop("reference_price")
+    )
+
+
 def compute_orders(
     portfolio: dy.DataFrame[Portfolio],
     positions: dy.DataFrame[Positions],
     quotes: dy.DataFrame[Quotes],
     settings: OrderSettings,
-    capital: float,
     do_not_trade: list[str],
+    toward_market: bool = False,
 ) -> tuple[dy.DataFrame[Orders], list[str], int]:
-    """Diff target holdings against current holdings.
+    """Diff target shares against current holdings.
 
     Returns the orders, the tickers skipped for lack of a usable quote, and the
     number of trades skipped for being below min_trade_value.
     """
     priced = resolve_prices(quotes, settings)
-    targets = portfolio.select("ticker", "weight")
+    targets = portfolio.select("ticker", pl.col("target_shares").alias("target"))
+    holdings = positions.rename({"shares": "held"})
 
     trades = (
-        targets.join(positions, on="ticker", how="full", coalesce=True)
+        targets.join(holdings, on="ticker", how="full", coalesce=True)
         .join(priced, on="ticker", how="left")
         .filter(pl.col("ticker").is_in(do_not_trade).not_())
-        .with_columns(pl.col("weight", "shares").fill_null(0.0))
+        .with_columns(pl.col("target", "held").fill_null(0.0))
         .with_columns(
-            pl.col("weight")
-            .mul(capital)
-            .truediv(pl.col("reference_price"))
-            .sub(pl.col("shares"))
-            .round(SHARE_DECIMALS)
-            .alias("delta")
+            pl.col("target").sub(pl.col("held")).round(SHARE_DECIMALS).alias("delta")
         )
+        .filter(pl.col("delta").ne(0))
     )
 
     skipped_no_quote = (
@@ -97,7 +131,7 @@ def compute_orders(
     )
 
     orders = (
-        trades.filter(pl.col("delta").is_not_null(), pl.col("delta").ne(0))
+        trades.filter(pl.col("reference_price").is_not_null())
         .with_columns(
             pl.when(pl.col("delta").gt(0))
             .then(pl.lit("BUY"))
@@ -120,6 +154,7 @@ def compute_orders(
             row["ask"],
             settings.limit_aggressiveness,
             row["min_tick"],
+            toward_market,
         )
         for row in orders.iter_rows(named=True)
     ]

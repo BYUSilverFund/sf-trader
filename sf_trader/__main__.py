@@ -1,4 +1,5 @@
 import datetime as dt
+from dataclasses import replace
 from pathlib import Path
 
 import click
@@ -8,14 +9,29 @@ from sf_trader import charts, data, metrics
 from sf_trader.combine import combine_alphas
 from sf_trader.config import Config, ConfigError, load_config
 from sf_trader.ibkr import IBKRClient
+from sf_trader.models import Portfolio
 from sf_trader.optimize import OptimizationError, optimize_portfolio
-from sf_trader.orders import compute_orders, write_basket
+from sf_trader.orders import compute_orders, compute_targets, write_basket
 from sf_trader.universe import apply_do_not_trade, apply_universe_filter
 
 PORTFOLIO_PATH = Path("portfolio.csv")
 ORDERS_PATH = Path("orders.csv")
+REFRESH_PATH = Path("orders_refresh.csv")
 PORTFOLIO_CHART_PATH = Path("portfolio_metrics.png")
 ORDER_CHART_PATH = Path("order_metrics.png")
+
+
+class RefreshError(Exception):
+    """Raised when orders cannot be safely generated or refreshed"""
+
+
+def require_no_working_orders(client: IBKRClient) -> None:
+    """New orders on top of working ones would trade the same shares twice."""
+    if tickers := client.get_working_order_tickers():
+        raise RefreshError(
+            f"{len(tickers)} working orders in TWS: {tickers}. "
+            "Cancel them in TWS and run again."
+        )
 
 
 def get_capital(config: Config, client: IBKRClient, frozen_value: float) -> float:
@@ -68,6 +84,7 @@ def run(config: Config) -> None:
 
     # Connect before the slow solve so a TWS problem fails fast. Read-only.
     with IBKRClient(config.ibkr) as client:
+        require_no_working_orders(client)
         positions = client.get_positions()
         capital = get_capital(config, client, get_frozen_value(config, client, positions))
         print(f"Capital ${capital:,.2f}, {positions.height} current positions")
@@ -80,19 +97,16 @@ def run(config: Config) -> None:
             config.constraints,
             capital,
         )
-        portfolio.write_csv(PORTFOLIO_PATH)
 
         tickers = sorted(set(portfolio["ticker"]) | set(positions["ticker"]) - set(config.do_not_trade))
         print(f"Fetching quotes for {len(tickers)} tickers...")
         quotes = client.get_quotes(tickers)
 
+    portfolio = compute_targets(portfolio, quotes, config.orders, capital)
+    portfolio.write_csv(PORTFOLIO_PATH)
+
     orders, skipped_no_quote, skipped_small = compute_orders(
-        portfolio,
-        positions,
-        quotes,
-        config.orders,
-        capital,
-        list(config.do_not_trade),
+        portfolio, positions, quotes, config.orders, list(config.do_not_trade)
     )
     write_basket(orders, ORDERS_PATH, f"SF_{config.trade_date:%Y%m%d}")
 
@@ -147,6 +161,76 @@ def run(config: Config) -> None:
     print(f"Wrote {PORTFOLIO_PATH}, {ORDERS_PATH}, {PORTFOLIO_CHART_PATH}, {ORDER_CHART_PATH}")
 
 
+def load_saved_portfolio(config: Config) -> pl.DataFrame:
+    """Targets from the original run, so a refresh trades the same portfolio."""
+    if not PORTFOLIO_PATH.exists() or not ORDERS_PATH.exists():
+        raise RefreshError(f"Refresh needs {PORTFOLIO_PATH} and {ORDERS_PATH} from a full run")
+
+    tags = pl.read_csv(ORDERS_PATH, columns=["BasketTag"])["BasketTag"].unique().to_list()
+    expected = f"SF_{config.trade_date:%Y%m%d}"
+    if tags != [expected]:
+        raise RefreshError(
+            f"{ORDERS_PATH} is tagged {tags}, not {expected}. Do a full run for "
+            f"{config.trade_date}, or pass the --trade-date it was built for."
+        )
+
+    portfolio = pl.read_csv(PORTFOLIO_PATH)
+    if "target_shares" not in portfolio.columns:
+        raise RefreshError(
+            f"{PORTFOLIO_PATH} has no target_shares column, so it predates refresh. "
+            "Its shares are estimates and would create false trades. Do a full run."
+        )
+    return Portfolio.validate(portfolio, cast=True)
+
+
+def refresh(config: Config, aggressiveness: float | None) -> None:
+    """Reprice what is still unfilled against the original targets."""
+    portfolio = load_saved_portfolio(config)
+    settings = replace(
+        config.orders,
+        limit_aggressiveness=(
+            config.orders.refresh_aggressiveness
+            if aggressiveness is None
+            else aggressiveness
+        ),
+    )
+
+    with IBKRClient(config.ibkr) as client:
+        require_no_working_orders(client)
+        positions = client.get_positions()
+        tickers = sorted(set(portfolio["ticker"]) | set(positions["ticker"]) - set(config.do_not_trade))
+        print(f"Fetching quotes for {len(tickers)} tickers...")
+        quotes = client.get_quotes(tickers)
+
+    orders, skipped_no_quote, skipped_small = compute_orders(
+        portfolio,
+        positions,
+        quotes,
+        settings,
+        list(config.do_not_trade),
+        toward_market=True,
+    )
+    write_basket(
+        orders,
+        REFRESH_PATH,
+        f"SF_{config.trade_date:%Y%m%d}_R{dt.datetime.now():%H%M}",
+    )
+
+    if skipped_no_quote:
+        print(f"WARNING: skipped {len(skipped_no_quote)} tickers with no usable quote: {skipped_no_quote}")
+    if skipped_small:
+        print(f"Left {skipped_small} trades below min_trade_value")
+
+    buys = orders.filter(pl.col("action").eq("BUY"))
+    sells = orders.filter(pl.col("action").eq("SELL"))
+    print(
+        f"Remaining at aggressiveness {settings.limit_aggressiveness}: "
+        f"{buys.height} buys ${buys['value'].sum():,.0f}, "
+        f"{sells.height} sells ${sells['value'].sum():,.0f}"
+    )
+    print(f"Wrote {REFRESH_PATH}")
+
+
 @click.command()
 @click.option(
     "--config",
@@ -161,12 +245,35 @@ def run(config: Config) -> None:
     default=None,
     help="Override trade_date from the config",
 )
-def cli(config_path: Path, trade_date: dt.datetime | None) -> None:
+@click.option(
+    "--refresh",
+    "refresh_orders",
+    is_flag=True,
+    help="Reprice unfilled orders against the saved portfolio into orders_refresh.csv",
+)
+@click.option(
+    "--aggressiveness",
+    type=click.FloatRange(0, 1),
+    default=None,
+    help="With --refresh, override orders.refresh_aggressiveness",
+)
+def cli(
+    config_path: Path,
+    trade_date: dt.datetime | None,
+    refresh_orders: bool,
+    aggressiveness: float | None,
+) -> None:
     """Build the portfolio and write a BasketTrader orders file. Never places orders."""
+    if aggressiveness is not None and not refresh_orders:
+        raise click.UsageError("--aggressiveness only applies with --refresh")
+
     try:
         config = load_config(config_path, trade_date.date() if trade_date else None)
-        run(config)
-    except (ConfigError, data.DataError, OptimizationError) as e:
+        if refresh_orders:
+            refresh(config, aggressiveness)
+        else:
+            run(config)
+    except (ConfigError, data.DataError, OptimizationError, RefreshError) as e:
         raise click.ClickException(str(e)) from e
 
 

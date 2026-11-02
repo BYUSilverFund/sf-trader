@@ -101,6 +101,18 @@ class IBKRClient:
             pl.DataFrame(rows, schema={"ticker": pl.String, "shares": pl.Float64})
         )
 
+    def get_working_order_tickers(self) -> list[str]:
+        """Tickers with open orders from TWS or any API client. Only reads them, and doesn't bind them."""
+        self._app.open_orders = {}
+        self._app.reqAllOpenOrders()
+        self._wait_for("open_orders_0")
+        return sorted(
+            {
+                from_ibkr_symbol(order["contract"].symbol)
+                for order in self._app.open_orders.values()
+            }
+        )
+
     def _get_contract_details(self, tickers: list[str]) -> dict[str, dict]:
         req_ids = {}
         for ticker in tickers:

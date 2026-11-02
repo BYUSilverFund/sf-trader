@@ -7,6 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 
+from sf_trader.__main__ import RefreshError, load_saved_portfolio, require_no_working_orders
 from sf_trader.charts import save_order_chart, save_portfolio_chart
 from sf_trader.combine import combine_alphas
 from sf_trader.config import ConfigError, Constraints, OrderSettings, parse_config
@@ -22,6 +23,7 @@ from sf_trader.models import Orders, Portfolio, Positions, Quotes
 from sf_trader.orders import (
     BASKET_COLUMNS,
     compute_orders,
+    compute_targets,
     limit_price,
     round_to_tick,
     to_basket,
@@ -55,7 +57,7 @@ def portfolio_frame(rows: list[tuple[str, float]]) -> pl.DataFrame:
                 "weight": [row[1] for row in rows],
                 "combined_alpha": [0.01] * len(rows),
                 "price": [100.0] * len(rows),
-                "shares": [1.0] * len(rows),
+                "target_shares": [1.0] * len(rows),
             }
         )
     )
@@ -106,6 +108,7 @@ class TestConfig:
             {"unknown": 1},
             {"orders": {"limit_aggressiveness": 2, "min_trade_value": 50, "capital": "net_liq"}},
             {"orders": {"limit_aggressiveness": 0.2, "min_trade_value": 50, "capital": "cash"}},
+            {"orders": {"limit_aggressiveness": 0.2, "min_trade_value": 50, "capital": "net_liq", "refresh_aggressiveness": 2}},
             {"constraints": {"risk_aversion": -1}},
             {"constraints": {"risk_aversion": 1, "typo": True}},
             {"constraints": {"risk_aversion": 1, "unit_beta": True, "zero_beta": True}},
@@ -176,7 +179,8 @@ class TestCleanWeights:
 
 class TestOrders:
     def run(self, portfolio, positions, quotes, settings=SETTINGS, capital=10_000.0, do_not_trade=()):
-        return compute_orders(portfolio, positions, quotes, settings, capital, list(do_not_trade))
+        targets = compute_targets(portfolio, quotes, settings, capital)
+        return compute_orders(targets, positions, quotes, settings, list(do_not_trade))
 
     def test_fractional_diff(self):
         orders, skipped, small = self.run(
@@ -258,6 +262,76 @@ class TestOrders:
         assert orders["limit_price"].to_list() == [100.0, 50.0] and skipped == []
 
 
+class TestRefresh:
+    def quotes(self) -> pl.DataFrame:
+        return quotes_frame(
+            [
+                {"ticker": "AAA", "bid": 100.00, "ask": 100.40},
+                {"ticker": "BBB", "bid": 50.00, "ask": 50.01},
+            ]
+        )
+
+    def portfolio(self) -> pl.DataFrame:
+        frame = portfolio_frame([("AAA", 0.5), ("BBB", 0.5)])
+        return Portfolio.validate(frame.with_columns(pl.Series("target_shares", [100.0, 200.0])))
+
+    def test_only_the_unfilled_remainder_is_ordered(self):
+        orders, _, _ = compute_orders(
+            self.portfolio(),
+            positions_frame([("AAA", 60.0), ("BBB", 200.0)]),
+            self.quotes(),
+            SETTINGS,
+            [],
+            toward_market=True,
+        )
+        assert orders["ticker"].to_list() == ["AAA"]
+        assert orders["shares"].to_list() == [40.0]
+
+    def test_targets_stay_fixed_when_prices_move(self):
+        moved = self.quotes().with_columns(pl.col("bid", "ask").mul(1.1))
+        orders, _, _ = compute_orders(
+            self.portfolio(),
+            positions_frame([("AAA", 100.0), ("BBB", 200.0)]),
+            moved,
+            SETTINGS,
+            [],
+            toward_market=True,
+        )
+        assert orders.is_empty()
+
+    def test_overfilled_names_are_sold_back(self):
+        orders, _, _ = compute_orders(
+            self.portfolio(),
+            positions_frame([("AAA", 110.0), ("BBB", 200.0)]),
+            self.quotes(),
+            SETTINGS,
+            [],
+            toward_market=True,
+        )
+        assert (orders["action"][0], orders["shares"][0]) == ("SELL", 10.0)
+
+    def test_one_tick_spread_becomes_marketable(self):
+        orders, _, _ = compute_orders(
+            self.portfolio(),
+            positions_frame([("AAA", 100.0)]),
+            self.quotes(),
+            SETTINGS,
+            [],
+            toward_market=True,
+        )
+        assert orders["limit_price"].to_list() == [50.01]
+
+    def test_held_name_at_target_needs_no_quote(self):
+        _, skipped, _ = compute_orders(
+            portfolio_frame([("AAA", 1.0)]),
+            positions_frame([("AAA", 1.0)]),
+            quotes_frame([{"ticker": "AAA"}]),
+            SETTINGS,
+            [],
+        )
+        assert skipped == []
+
+
 class TestLimitPrice:
     def test_buy_pays_fraction_of_half_spread(self):
         assert limit_price("BUY", 100.00, 100.40, 0.25, 0.01) == 100.25
@@ -279,6 +353,18 @@ class TestLimitPrice:
     def test_on_tick_prices_stay_put(self):
         assert round_to_tick(100.07, 0.01, "BUY") == 100.07
         assert round_to_tick(100.07, 0.01, "SELL") == 100.07
+
+    def test_toward_market_flips_the_rounding(self):
+        assert round_to_tick(100.011, 0.01, "BUY", toward_market=True) == 100.02
+        assert round_to_tick(100.019, 0.01, "SELL", toward_market=True) == 100.01
+
+    def test_one_tick_spread_rests_on_the_near_touch_by_default(self):
+        assert limit_price("BUY", 100.00, 100.01, 0.75, 0.01) == 100.00
+        assert limit_price("SELL", 100.00, 100.01, 0.75, 0.01) == 100.01
+
+    def test_one_tick_spread_crosses_toward_market(self):
+        assert limit_price("BUY", 100.00, 100.01, 0.75, 0.01, toward_market=True) == 100.01
+        assert limit_price("SELL", 100.00, 100.01, 0.75, 0.01, toward_market=True) == 100.00
 
     def test_sub_penny_tick(self):
         assert round_to_tick(0.51237, 0.0001, "BUY") == 0.5123
@@ -425,3 +511,38 @@ def test_ibkr_module_makes_no_write_calls():
             for node in ast.walk(ast.parse(path.read_text()))
             if isinstance(node, ast.Attribute)
         } & forbidden, path
+
+
+class TestLoadSavedPortfolio:
+    def write(self, tmp_path, monkeypatch, tag="SF_20261102", shares_column="target_shares"):
+        monkeypatch.chdir(tmp_path)
+        portfolio_frame([("AAA", 1.0)]).rename({"target_shares": shares_column}).write_csv("portfolio.csv")
+        pl.DataFrame({"BasketTag": [tag]}).write_csv("orders.csv")
+
+    def test_loads_matching_run(self, tmp_path, monkeypatch):
+        self.write(tmp_path, monkeypatch)
+        assert load_saved_portfolio(parse_config(raw_config())).height == 1
+
+    def test_rejects_another_days_orders(self, tmp_path, monkeypatch):
+        self.write(tmp_path, monkeypatch, tag="SF_20261030")
+        with pytest.raises(RefreshError, match="tagged"):
+            load_saved_portfolio(parse_config(raw_config()))
+
+    def test_rejects_estimated_shares(self, tmp_path, monkeypatch):
+        self.write(tmp_path, monkeypatch, shares_column="shares")
+        with pytest.raises(RefreshError, match="target_shares"):
+            load_saved_portfolio(parse_config(raw_config()))
+
+    def test_requires_a_full_run_first(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(RefreshError, match="full run"):
+            load_saved_portfolio(parse_config(raw_config()))
+
+
+def test_working_orders_block_new_files():
+    class Client:
+        def get_working_order_tickers(self):
+            return ["LAUR"]
+
+    with pytest.raises(RefreshError, match="LAUR"):
+        require_no_working_orders(Client())

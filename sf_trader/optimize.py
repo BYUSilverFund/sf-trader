@@ -74,9 +74,9 @@ def optimize_portfolio(
         clean_weights(weights, constraints)
         .join(alphas, on="barrid", how="left")
         .with_columns(
-            pl.col("weight").mul(capital).truediv(pl.col("price")).round(4).alias("shares")
+            pl.col("weight").mul(capital).truediv(pl.col("price")).round(4).alias("target_shares")
         )
-        .select("ticker", "barrid", "weight", "combined_alpha", "price", "shares")
+        .select("ticker", "barrid", "weight", "combined_alpha", "price", "target_shares")
         .sort("ticker")
     )
 
