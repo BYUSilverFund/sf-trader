@@ -213,3 +213,6 @@ __marimo__/
 
 scripts/download.sh
 scripts/download_al.sh
+# Pipeline outputs
+portfolio_metrics.png
+order_metrics.png
