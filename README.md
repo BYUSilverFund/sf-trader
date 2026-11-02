@@ -1,94 +1,96 @@
 # Silver Fund Trading Repository
 
-Turns the alphas from `sf-data-pipelines-quant` into a target portfolio and a CSV for IBKR's BasketTrader.
+`sf-trader` turns the alphas from `sf-data-pipelines-quant` into a target portfolio and a CSV of limit orders for IBKR's BasketTrader.
 
-**This repo never places orders.** IBKR access is read-only: account value, positions, contract details and quotes. You review `orders.csv` and import it into BasketTrader yourself.
+**This repo never places orders.** It only reads account value, positions, contract details and quotes from TWS. You review `orders.csv` and upload it to BasketTrader yourself.
+
+For how the pipeline works, the full config reference and troubleshooting, see [docs/pipeline.md](docs/pipeline.md).
 
 ## Setup
-1. Install dependencies
+You only need to do this once.
+
+1. Install dependencies:
 
 ```bash
 uv sync
+source .venv/bin/activate
 ```
 
-2. Download [IBKR Trader Work Station (TWS)](https://www.interactivebrokers.com/en/trading/download-tws.php?p=latest) and enable the API. Ticking **Read-Only API** in the TWS API settings is recommended.
+2. Download [IBKR Trader Workstation (TWS)](https://www.interactivebrokers.com/en/trading/download-tws.php?p=latest), using the "latest" version.
 
-3. Download the [IBKR TWS API](https://interactivebrokers.github.io/#), using the "latest" version for synchronous API support. Move the `IBJts` folder to the repository root and install it:
+3. Download the [IBKR TWS API](https://interactivebrokers.github.io/#), also the "latest" version. Move the `IBJts` folder to the repository root and install it into the virtual environment:
 
 ```bash
 cd IBJts/source/pythonclient
 python setup.py install
+cd ../../..
 ```
 
-Run `uv sync --inexact` afterwards, because a plain `uv sync` removes `ibapi`.
+`ibapi` isn't in `uv.lock`, so a plain `uv sync` removes it. After this step, use `uv sync --inexact`.
 
-4. Add `ROOT` and `DATABASE` to `.env`. Data is read from `$ROOT/groups/grp_quant/database/$DATABASE`.
+4. Create a `.env` file in the repository root. Data is read from `$ROOT/groups/grp_quant/database/$DATABASE`.
 
-## Usage
-1. Refresh local data from the supercomputer:
+```bash
+ROOT="/Users/your-name"
+DATABASE="production"
+```
+
+5. In TWS, enable the API in the API settings. Ticking **Read-Only API** is recommended as a second safeguard. The port must match `ibkr.port` in `config.yaml`.
+
+## Trading
+Run these steps from the repository root with the virtual environment active.
+
+### 1. Refresh the data
+This copies the current year's files from the supercomputer. It needs your supercomputer login, and the username and paths are set at the top of the script.
 
 ```bash
 scripts/download_by_year.sh 2026
 ```
 
-2. Open TWS, set `trade_date` in `config.yaml`, and run:
+### 2. Open TWS
+Log in to the account you are trading. Run during market hours, because orders need two-sided quotes.
+
+### 3. Set the trade date
+Set `trade_date` in `config.yaml` to the day you are trading. The run uses the latest alphas dated before that day. It stops if they are more than 4 calendar days old.
+
+```yaml
+trade_date: 2026-11-02
+```
+
+You can also override the date on the command line in the next step.
+
+### 4. Run the pipeline
 
 ```bash
 python -m sf_trader --config config.yaml
-python -m sf_trader --config config.yaml --trade-date 2026-11-03   # override the date
+python -m sf_trader --config config.yaml --trade-date 2026-11-03   # optional override
 ```
 
-3. Check the charts, then import `orders.csv` in BasketTrader.
-
-If active risk isn't about 5%, adjust `constraints.risk_aversion` and run again.
-
-## Pipeline
-1. Load and validate the config.
-2. Load alphas. Alphas dated D are traded on the next session, so the run uses the latest alpha date before `trade_date` and fails if that date is more than 4 calendar days old.
-3. Apply the universe filter: Russell 3000 membership and close above `universe.min_price` on the alpha date, plus a ticker and risk data. Drop counts are printed as warnings.
-4. Combine the signals.
-5. Remove `do_not_trade` names. They are never traded, held positions stay as they are, and their value is taken out of `net_liq`.
-6. Optimize and write `portfolio.csv`.
-7. Read positions and quotes from TWS, and diff targets against holdings. Holdings outside the portfolio are sold.
-8. Set limit prices and write `orders.csv`.
-9. Write `portfolio_metrics.png` and `order_metrics.png`.
-
-## Config
-
-| Key | Meaning |
-|---|---|
-| `trade_date` | Date you are trading on |
-| `signals` | Names from the `signal_name` column of the alpha files: `barra_momentum`, `barra_reversal`, `ivol`, `beta`, `momentum`, `reversal` |
-| `combination_strategy` | `equal_weight`. A signal missing for a name counts as 0 |
-| `do_not_trade` | Tickers that are never traded |
-| `universe.min_price` | Names must close above this |
-| `constraints.risk_aversion` | Optimizer gamma. Required, and must be tuned for the decimal alpha scale |
-| `constraints.long_only`, `full_investment`, `no_buying_on_margin`, `unit_beta`, `zero_beta`, `zero_investment` | Optional, true or false |
-| `constraints.max_weight` | Optional largest weight per name |
-| `constraints.weight_decimals` | Weights are rounded to this, and smaller weights are dropped. Default 4 |
-| `orders.limit_aggressiveness` | α in the limit price formula, from 0 to 1 |
-| `orders.min_trade_value` | Trades below this many dollars are skipped |
-| `orders.capital` | `net_liq` or a dollar amount |
-| `orders.quote_fallback` | `skip` drops names without a two-sided quote. `last` prices them at last, then close |
-| `ibkr.host`, `port`, `client_id` | TWS connection |
-
-## Alpha files
-`$ROOT/groups/grp_quant/database/$DATABASE/alphas/alphas_{year}.parquet`, one file per year. From 2025 onward the columns are `date`, `barrid`, `signal_name`, `alpha`. Alphas are in decimal space, and tickers come from joining the assets table on `barrid`. Files from 2023 and 2024 use `alpha_value` and add `ticker`, so scanning across all years fails.
-
-## Outputs
+A run writes four files to the repository root:
 
 | File | Contents |
 |---|---|
-| `portfolio.csv` | `ticker, barrid, weight, combined_alpha, price, shares`. `price` is the alpha-date close, and `shares` is an estimate at that price |
-| `orders.csv` | BasketTrader import file |
+| `portfolio.csv` | Target weights, combined alpha, alpha-date close and estimated shares |
+| `orders.csv` | The BasketTrader upload file |
 | `portfolio_metrics.png` | Risk, exposure and largest weights |
-| `order_metrics.png` | Order totals, skips, transfer coefficient and largest orders |
+| `order_metrics.png` | Order totals, skipped orders, transfer coefficient and largest orders |
 
-Limit prices are `mid + α(ask − mid)` for buys and `mid − α(mid − bid)` for sells. Buys round down to the tick and sells round up.
+### 5. Check the results
+Read the warnings printed by the run, then open both charts.
 
-`orders.csv` columns are `Action, Quantity, Symbol, SecType, Exchange, Currency, TimeInForce, OrderType, LmtPrice, BasketTag`, following IBKR's [Basket Fields](https://ibkrguides.com/traderworkstation/basket-fields.htm) and [Manually Create a Basket File](https://ibkrguides.com/traderworkstation/manually-create-a-basket-file.htm). Quantities use up to 4 decimals. Class shares use a space, as in `BRK B`.
+- **Active risk** should be about 5%. If it isn't, adjust `constraints.risk_aversion` in `config.yaml` and run again. A higher value lowers active risk.
+- **Skipped, no quote** should be 0. Anything skipped won't be traded, and the affected tickers are printed in the run's warnings.
+- **`orders.csv`** should have one row per order. A file with only a header means no orders were generated, usually because the market is closed.
 
-The transfer coefficient compares optimal active weights with current holdings and with holdings after all orders fill.
+### 6. Upload to BasketTrader
+1. In TWS, open BasketTrader. In Classic TWS it's under **Trading Tools**, and the menu location can differ between TWS versions.
+2. Click **Browse**.
+3. Select `orders.csv` in the repository root and click **Open**.
+4. Check that the order count, sides, quantities and limit prices match the run's output.
+
+Uploading only loads the orders into BasketTrader. Review them there, because transmitting the basket sends live orders to the market.
+
+The steps follow IBKR's guide, [Upload a File to BasketTrader](https://ibkrguides.com/traderworkstation/upload-a-file-to-baskettrader.htm).
 
 ## Tests
 
