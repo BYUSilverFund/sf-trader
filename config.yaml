@@ -1,4 +1,4 @@
-trade_date: 2026-11-02          # date we're trading on; alphas come from the latest date before it
+trade_date: 2026-10-30          # date we're trading on; alphas come from the latest date before it
 signals:
   - barra_momentum
   - barra_reversal
@@ -18,7 +18,7 @@ constraints:
   full_investment: true
   no_buying_on_margin: true
   unit_beta: true
-  risk_aversion: 1.5
+  risk_aversion: 2
   weight_decimals: 4
 orders:
   limit_aggressiveness: 0.25    # fraction of half-spread paid beyond mid
