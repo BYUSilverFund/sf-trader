@@ -45,6 +45,7 @@ This copies the current year's files from the supercomputer. It needs your super
 
 ```bash
 scripts/download_by_year.sh 2026
+python pipelines ftse backfill --database production
 ```
 
 ### 2. Open TWS
@@ -55,6 +56,9 @@ Set `trade_date` in `config.yaml` to the day you are trading. The run uses the l
 
 ```yaml
 trade_date: 2026-11-02
+```bash
+python pipelines barra backfill --database production
+python piplines barra update --database production
 ```
 
 You can also override the date on the command line in the next step.
