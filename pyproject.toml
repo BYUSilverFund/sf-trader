@@ -1,11 +1,18 @@
 [project]
 name = "sf-trader"
 version = "0.1.0"
-description = "Add your description here"
+description = "Turns alphas into a portfolio and an IBKR BasketTrader orders file"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
+    "click>=8.1",
+    "cvxpy>=1.7",
     "dataframely>=2.1.0",
+    "matplotlib>=3.10",
+    "numpy>=2.0",
+    "polars>=1.30",
+    "pyyaml>=6.0",
+    "sf-quant>=0.1.18,<0.2.2",
     "ibapi",
     "sf-quant>=0.1.15",
     "tqdm>=4.67.1",
@@ -13,6 +20,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
