@@ -6,13 +6,11 @@ import click
 import polars as pl
 
 from sf_trader import charts, data, metrics
-from sf_trader.combine import combine_alphas
 from sf_trader.config import Config, ConfigError, load_config
 from sf_trader.ibkr import IBKRClient
 from sf_trader.models import Portfolio
-from sf_trader.optimize import OptimizationError, optimize_portfolio
 from sf_trader.orders import compute_orders, compute_targets, write_basket
-from sf_trader.universe import apply_do_not_trade, apply_universe_filter
+from sf_trader.universe import apply_do_not_trade
 
 PORTFOLIO_PATH = Path("portfolio.csv")
 ORDERS_PATH = Path("orders.csv")
@@ -42,7 +40,7 @@ def get_capital(config: Config, client: IBKRClient, frozen_value: float) -> floa
 
 
 def get_frozen_value(config: Config, client: IBKRClient, positions: pl.DataFrame) -> float:
-    """Market value of do-not-trade holdings, which the optimizer cannot reallocate."""
+    """Market value of do-not-trade holdings, which cannot be reallocated."""
     frozen = positions.filter(pl.col("ticker").is_in(config.do_not_trade))
     if frozen.is_empty():
         return 0.0
@@ -56,47 +54,42 @@ def get_frozen_value(config: Config, client: IBKRClient, positions: pl.DataFrame
     return float((valued["shares"] * valued["price"]).sum())
 
 
-def run(config: Config) -> None:
-    signals = list(config.signals)
-
-    alpha_date = data.resolve_alpha_date(config.trade_date)
-    print(f"Trade date {config.trade_date}, alphas from {alpha_date}")
-
-    alphas = data.load_alphas(alpha_date, signals)
-    assets = data.load_assets(alpha_date)
-    exposure_barrids = data.load_exposure_barrids(alpha_date)
-
-    filtered, dropped = apply_universe_filter(
-        alphas, assets, config.min_price, exposure_barrids
+def build_portfolio(tradeable: pl.DataFrame, capital: float) -> pl.DataFrame:
+    """Rescale to sum to 1, round, and size at the close, as the old optimizer's clean_weights did."""
+    return Portfolio.validate(
+        tradeable.with_columns(pl.col("weight").truediv(pl.col("weight").sum()))
+        .with_columns(pl.col("weight").round(data.WEIGHT_DECIMALS))
+        .with_columns(
+            pl.col("weight").mul(capital).truediv(pl.col("price")).round(4).alias("target_shares")
+        )
+        .select("ticker", "barrid", "weight", "price", "target_shares")
+        .sort("ticker")
     )
-    if any(dropped.values()):
-        print(f"WARNING: universe filter dropped {sum(dropped.values())} names: {dropped}")
-    print(f"Universe: {filtered.height} of {alphas.height} names")
 
-    for signal in signals:
-        coverage = filtered[signal].is_not_null().mean()
-        if coverage < 0.9:
-            print(f"WARNING: {signal} covers only {coverage:.1%} of the universe")
 
-    combined = combine_alphas(filtered, signals, config.combination_strategy)
-    tradeable, excluded = apply_do_not_trade(combined, list(config.do_not_trade))
-    print(f"Do-not-trade: excluded {excluded} names from the optimizer")
+def run(config: Config) -> None:
+    weights_date = data.resolve_weights_date(config.trade_date)
+    print(f"Trade date {config.trade_date}, optimal weights from {weights_date}")
 
-    # Connect before the slow solve so a TWS problem fails fast. Read-only.
+    weights = data.load_weights(weights_date)
+    assets = data.load_assets(weights_date)
+    exposure_barrids = data.load_exposure_barrids(weights_date)
+
+    holdings = weights.join(assets, on="barrid", how="left")
+    if missing := holdings.filter(pl.col("ticker").is_null() | pl.col("price").is_null())["barrid"].to_list():
+        print(f"WARNING: dropped {len(missing)} holdings with no ticker or price: {missing}")
+    holdings = holdings.filter(pl.col("ticker").is_not_null() & pl.col("price").is_not_null())
+
+    tradeable, excluded = apply_do_not_trade(holdings, list(config.do_not_trade))
+    print(f"Do-not-trade: excluded {excluded} holdings")
+
     with IBKRClient(config.ibkr) as client:
         require_no_working_orders(client)
         positions = client.get_positions()
         capital = get_capital(config, client, get_frozen_value(config, client, positions))
         print(f"Capital ${capital:,.2f}, {positions.height} current positions")
 
-        barrids = tradeable["barrid"].to_list()
-        print(f"Optimizing {len(barrids)} names...")
-        portfolio = optimize_portfolio(
-            tradeable,
-            data.load_covariance_matrix(alpha_date, barrids),
-            config.constraints,
-            capital,
-        )
+        portfolio = build_portfolio(tradeable, capital)
 
         tickers = sorted(set(portfolio["ticker"]) | set(positions["ticker"]) - set(config.do_not_trade))
         print(f"Fetching quotes for {len(tickers)} tickers...")
@@ -130,7 +123,7 @@ def run(config: Config) -> None:
     benchmark = metrics.Benchmark(
         tickers=benchmark_frame["ticker"].to_list(),
         weights=benchmark_frame["weight"].to_numpy(),
-        covariance_matrix=data.load_covariance_matrix(alpha_date, benchmark_barrids),
+        covariance_matrix=data.load_covariance_matrix(weights_date, benchmark_barrids),
     )
 
     portfolio_metrics = metrics.get_portfolio_metrics(portfolio, benchmark, capital)
@@ -145,7 +138,7 @@ def run(config: Config) -> None:
         skipped_small,
     )
 
-    title = f"Trade date {config.trade_date}, alphas from {alpha_date}"
+    title = f"Trade date {config.trade_date}, optimal weights from {weights_date}"
     charts.save_portfolio_chart(portfolio, portfolio_metrics, PORTFOLIO_CHART_PATH, title)
     charts.save_order_chart(orders, order_metrics, ORDER_CHART_PATH, title)
 
@@ -273,7 +266,7 @@ def cli(
             refresh(config, aggressiveness)
         else:
             run(config)
-    except (ConfigError, data.DataError, OptimizationError, RefreshError) as e:
+    except (ConfigError, data.DataError, RefreshError) as e:
         raise click.ClickException(str(e)) from e
 
 

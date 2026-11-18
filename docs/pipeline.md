@@ -7,36 +7,22 @@ How `python -m sf_trader --config config.yaml` works, what it reads and writes, 
 | Step | What happens | Module |
 |---|---|---|
 | 1 | Load and validate the config | `config.py` |
-| 2 | Pick the alpha date and load alphas | `data.py` |
-| 3 | Re-apply the universe filter | `universe.py` |
-| 4 | Combine the signals | `combine.py` |
-| 5 | Remove `do_not_trade` names | `universe.py` |
-| 6 | Stop if TWS has working orders, then read positions and capital | `ibkr.py` |
-| 7 | Optimize | `optimize.py` |
-| 8 | Fetch quotes, fix target shares, write `portfolio.csv`, diff against holdings, set limit prices and write `orders.csv` | `ibkr.py`, `orders.py` |
-| 9 | Compute metrics and write the charts | `metrics.py`, `charts.py` |
+| 2 | Pick the weights date and load the optimal weights | `data.py` |
+| 3 | Map holdings to tickers and remove `do_not_trade` names | `__main__.py`, `universe.py` |
+| 4 | Stop if TWS has working orders, then read positions and capital | `ibkr.py` |
+| 5 | Rescale the weights to sum to 1 and size them at the close | `__main__.py` |
+| 6 | Fetch quotes, fix target shares, write `portfolio.csv`, diff against holdings, set limit prices and write `orders.csv` | `ibkr.py`, `orders.py` |
+| 7 | Compute metrics and write the charts | `metrics.py`, `charts.py` |
 
-TWS is contacted before the optimizer runs, so a connection problem fails quickly.
+`--refresh` skips steps 2, 3 and 5. It loads the saved `portfolio.csv`, repeats the working-order check, and writes only `orders_refresh.csv`.
 
-`--refresh` skips steps 2 to 7. It loads the saved `portfolio.csv`, repeats the working-order check, and writes only `orders_refresh.csv`.
+### Weights date
+The portfolio comes from the `optimal_weights` table, which the nightly job in `sf-data-pipelines-quant` builds. Weights dated D are traded on the next session. The run uses the latest weights date before `trade_date`, so `trade_date: 2026-11-16` (a Monday) uses weights from Friday 2026-11-13.
 
-### Alpha date
-Alphas dated D are traded on the next session, which matches the one-day weight lag in the backtests. The run uses the latest alpha date before `trade_date`. So `trade_date: 2026-11-02` (a Monday) uses alphas from Friday 2026-10-30.
-
-The run stops if that date is more than 4 calendar days before `trade_date`, or if any configured signal has no rows on it.
-
-### Universe filter
-The pipeline should already restrict alphas to the tradeable universe. sf-trader checks again so the portfolio can only hold tradeable names. A name is dropped if it fails any of these on the alpha date:
-
-- It isn't in the Russell 3000 (`in_universe` is false, null or missing).
-- Its close isn't above `universe.min_price`.
-- It has no ticker.
-- It has no specific risk, predicted beta or factor exposures.
-
-Drop counts are printed as a warning.
+The run stops if that date is more than 4 calendar days before `trade_date`, or if the weights don't sum to 1 or contain a short position. As in the old optimizer, weights below 0.0001 are dropped, the rest are rescaled to sum to 1, and weights are rounded to 4 decimals. Holdings with no ticker or price in the assets table are dropped with a warning.
 
 ### Do-not-trade names
-These names are excluded from the optimizer and never get an order, and held positions stay as they are. When `orders.capital` is `net_liq`, their market value is subtracted from capital. A holding with no price is valued at 0 with a warning.
+These names are removed from the portfolio and never get an order, the remaining weights are rescaled to sum to 1, and held positions stay as they are. When `orders.capital` is `net_liq`, their market value is subtracted from capital. A holding with no price is valued at 0 with a warning.
 
 ### Orders
 - Target shares are `weight × capital / mid`, fixed at that run's quotes and saved in `portfolio.csv`, then compared against current holdings.
@@ -53,34 +39,19 @@ See [limit_orders.md](limit_orders.md).
 - **Current holdings:** how close the account is to the target before trading.
 - **After orders:** holdings if every order fills. This shows the effect of skipped orders, and it doesn't measure execution quality.
 
-Values use alpha-date closes, and the benchmark is the cap-weighted Russell 3000.
+Values use closes on the weights date, and the benchmark is the cap-weighted Russell 3000.
 
 ## Configuration
 All inputs come from `config.yaml`. Unknown keys and invalid values stop the run at startup.
 
 ```yaml
 trade_date: 2026-11-02
-signals:
-  - barra_momentum
-  - barra_reversal
-  - ivol
-  - beta
-combination_strategy: equal_weight
 do_not_trade:
   - MONDQ
   - MOND
   - VELO
   - BGXXQ
   - PSTX.CVR
-universe:
-  min_price: 5.0
-constraints:
-  long_only: true
-  full_investment: true
-  no_buying_on_margin: true
-  unit_beta: true
-  risk_aversion: 1.5
-  weight_decimals: 4
 orders:
   limit_aggressiveness: 0.25
   min_trade_value: 50
@@ -95,19 +66,7 @@ ibkr:
 | Key | Required | Meaning |
 |---|---|---|
 | `trade_date` | Yes | The day you are trading. `--trade-date` overrides it |
-| `signals` | Yes | Values from the `signal_name` column of the alpha files |
-| `combination_strategy` | Yes | `equal_weight`. A signal missing for a name counts as 0 |
 | `do_not_trade` | No | Tickers that are never traded |
-| `universe.min_price` | Yes | Names must close above this |
-| `constraints.risk_aversion` | Yes | Optimizer gamma |
-| `constraints.long_only` | No | No short positions |
-| `constraints.full_investment` | No | Weights sum to 1. Final weights are rescaled because the solver meets this only approximately |
-| `constraints.no_buying_on_margin` | No | Weights sum to at most 1 |
-| `constraints.unit_beta` | No | Portfolio beta of 1 |
-| `constraints.zero_beta` | No | Portfolio beta of 0. Can't be combined with `unit_beta` |
-| `constraints.zero_investment` | No | Weights sum to 0. Can't be combined with `full_investment` |
-| `constraints.max_weight` | No | Largest weight per name, above 0 and up to 1 |
-| `constraints.weight_decimals` | No | Weights are rounded to this many decimals, and smaller weights are dropped. Default 4 |
 | `orders.limit_aggressiveness` | Yes | `α` in the limit price formula, from 0 to 1 |
 | `orders.min_trade_value` | Yes | Smallest trade in dollars |
 | `orders.capital` | Yes | `net_liq` or a fixed dollar amount |
@@ -115,33 +74,11 @@ ibkr:
 | `orders.refresh_aggressiveness` | No | `α` for `--refresh`, from 0 to 1. Default 0.75. `--aggressiveness` overrides it |
 | `ibkr.host`, `ibkr.port`, `ibkr.client_id` | Yes | TWS connection |
 
-### Tuning risk aversion
-Alphas are in decimal space, the same as the covariance matrix. Values from older configs, such as `gamma: 100`, don't carry over because those alphas were 100 times larger.
-
-On the 2026-10-30 data:
-
-| `risk_aversion` | Active risk | Positions |
-|---|---|---|
-| 1.0 | 6.2% | 62 |
-| 1.5 | 5.0% | 88 |
-| 3.2 | 3.2% | 136 |
-| 10 | 1.8% | 281 |
-| 100 | 1.2% | 837 |
-
 ## Data
 Tables live under `$ROOT/groups/grp_quant/database/$DATABASE/`, and sf-trader only reads them.
 
-### Alpha files
-`alphas/alphas_{year}.parquet`, with one file per year:
-
-| Years | Columns |
-|---|---|
-| 2025 onward | `date`, `barrid`, `signal_name`, `alpha` |
-| 2023 and 2024 | `date`, `barrid`, `ticker`, `signal_name`, `alpha_value` |
-
-Because the schemas differ, scanning all years at once fails. sf-trader reads one year at a time. Tickers come from joining the `assets` table on `barrid`.
-
-Available signals are `barra_momentum`, `barra_reversal`, `ivol`, `beta`, `momentum` and `reversal`.
+### Optimal weights
+`optimal_weights/optimal_weights_{year}.parquet`, with one file per year and one row per date and stock. `weight` is the total portfolio weight, benchmark plus active tilt.
 
 ### Universe data
 Russell 3000 membership comes from monthly FTSE Russell snapshots, which `assets_flow.py` forward-fills by `barrid` into `in_universe`. The FTSE table isn't refreshed by the daily pipeline job. Refreshing it needs a WRDS password and a Duo push, so it's run by hand. See `DEVELOPER.md` in `sf-data-pipelines-quant`.
@@ -154,8 +91,7 @@ Russell 3000 membership comes from monthly FTSE Russell snapshots, which `assets
 |---|---|
 | `ticker`, `barrid` | Identifiers |
 | `weight` | Target weight of capital |
-| `combined_alpha` | Combined alpha |
-| `price` | Close on the alpha date |
+| `price` | Close on the weights date |
 | `target_shares` | Target position at the run's mids. `--refresh` uses this, and names without a quote keep an estimate at the close |
 
 ### `orders.csv` and `orders_refresh.csv`
@@ -175,15 +111,14 @@ Market data requests are grouped into batches of 90 to stay under the default li
 
 | Message or symptom | Cause | Fix |
 |---|---|---|
-| `Latest alphas are from ...` | Local data is stale | Run `scripts/download_by_year.sh`, and check the pipeline job if the alphas are still old |
-| `No alphas on <date> for [...]` | A signal is missing or misnamed | Compare `signals` with the `Available` list in the message |
+| `Latest optimal weights are from ...` | Local data is stale, or the nightly job failed | Run `scripts/download_by_year.sh`, and check the nightly `optimal_weights` job if the weights are still old |
+| `Optimal weights for <date> are invalid` | The weights don't sum to 1 or have shorts, as on 2026-11-11 to 11-16 | Don't trade. Check the nightly `optimal_weights` job |
+| `dropped N holdings with no ticker or price` | The assets table is missing data for a holding | Check the listed barrids before trading |
 | `Failed to connect to TWS` | TWS is closed, or the API is off or on another port | Open TWS and check its API settings against `ibkr.port` |
 | `No response from TWS` | TWS is connected but not answering | Check that TWS is logged in, then run again |
 | Client id already in use | Another API session is connected | Close it or change `ibkr.client_id` |
-| `Optimizer returned no solution` | Constraints can't all be met | Relax the constraints, starting with `max_weight` |
 | `skipped N tickers with no usable quote` | Market closed, or no market data for those names | Run during market hours and check the tickers |
 | `orders.csv` has only a header | Every ticker was skipped, or holdings already match targets | Read the run's warnings |
-| `<signal> covers only N% of the universe` | The signal is missing for many names | Check the pipeline. The run continues and counts missing values as 0 |
 | `No module named 'ibapi'` | A plain `uv sync` removed it | Reinstall from `IBJts` and use `uv sync --inexact` from then on |
 | BasketTrader rejects the file | Format problem | Compare with a basket exported from TWS using **Save Orders as Basket** |
 | `working orders in TWS` | Orders are still open, and new ones would double up | Cancel them in TWS and run again |

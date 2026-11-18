@@ -30,7 +30,6 @@ class Portfolio(dy.Schema):
     ticker = dy.String(nullable=False)
     barrid = dy.String(nullable=False)
     weight = dy.Float64(nullable=False)
-    combined_alpha = dy.Float64(nullable=False)
     price = dy.Float64(nullable=False)
     target_shares = dy.Float64(nullable=False)
 
