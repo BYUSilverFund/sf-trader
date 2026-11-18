@@ -6,15 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
     "click>=8.1",
-    "cvxpy>=1.7",
     "dataframely>=2.1.0",
     "matplotlib>=3.10",
     "numpy>=2.0",
     "polars>=1.30",
     "pyyaml>=6.0",
-    "sf-quant>=0.1.18,<0.2.2",
+    "sf-quant>=0.2.1,<0.2.2",
     "ibapi",
-    "sf-quant>=0.1.15",
     "tqdm>=4.67.1",
 ]
 

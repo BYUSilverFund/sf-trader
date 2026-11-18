@@ -1,6 +1,6 @@
 # Silver Fund Trading Repository
 
-`sf-trader` turns the alphas from `sf-data-pipelines-quant` into a target portfolio and a CSV of limit orders for IBKR's BasketTrader.
+`sf-trader` turns the optimal weights that `sf-data-pipelines-quant` builds each night into a CSV of limit orders for IBKR's BasketTrader.
 
 **This repo never places orders.** It only reads account value, positions, contract details and quotes from TWS. You review `orders.csv` and upload it to BasketTrader yourself.
 
@@ -52,7 +52,7 @@ python pipelines ftse backfill --database production
 Log in to the account you are trading. Run during market hours, because orders need two-sided quotes.
 
 ### 3. Set the trade date
-Set `trade_date` in `config.yaml` to the day you are trading. The run uses the latest alphas dated before that day. It stops if they are more than 4 calendar days old.
+Set `trade_date` in `config.yaml` to the day you are trading. The run uses the latest optimal weights dated before that day. It stops if they are more than 4 calendar days old.
 
 ```yaml
 trade_date: 2026-11-02
@@ -74,7 +74,7 @@ A run writes four files to the repository root:
 
 | File | Contents |
 |---|---|
-| `portfolio.csv` | Target weights, combined alpha, alpha-date close and target shares |
+| `portfolio.csv` | Target weights, close on the weights date and target shares |
 | `orders.csv` | The BasketTrader upload file |
 | `portfolio_metrics.png` | Risk, exposure and largest weights |
 | `order_metrics.png` | Order totals, skipped orders, transfer coefficient and largest orders |
@@ -82,7 +82,7 @@ A run writes four files to the repository root:
 ### 5. Check the results
 Read the warnings printed by the run, then open both charts.
 
-- **Active risk** should be about 5%. If it isn't, adjust `constraints.risk_aversion` in `config.yaml` and run again. A higher value lowers active risk.
+- **Active risk** should be about 5%. It's set by the nightly optimizer in `sf-data-pipelines-quant`, not here.
 - **Skipped, no quote** should be 0. Anything skipped won't be traded, and the affected tickers are printed in the run's warnings.
 - **`orders.csv`** should have one row per order. A file with only a header means no orders were generated, usually because the market is closed.
 
@@ -111,7 +111,7 @@ python -m sf_trader --config config.yaml --refresh --aggressiveness 0.9   # opti
 
 3. Upload `orders_refresh.csv` the same way as step 6.
 
-A refresh keeps the targets from the day's full run in `portfolio.csv` and doesn't rerun the optimizer. Run it during market hours, because it needs two-sided quotes.
+A refresh keeps the targets from the day's full run in `portfolio.csv` and doesn't reload the weights. Run it during market hours, because it needs two-sided quotes.
 
 ## Tests
 

@@ -7,12 +7,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from sf_trader.__main__ import RefreshError, load_saved_portfolio, require_no_working_orders
+from sf_trader import data
+from sf_trader.__main__ import RefreshError, build_portfolio, load_saved_portfolio, require_no_working_orders
 from sf_trader.charts import save_order_chart, save_portfolio_chart
-from sf_trader.combine import combine_alphas
-from sf_trader.config import ConfigError, Constraints, OrderSettings, parse_config
+from sf_trader.config import ConfigError, OrderSettings, parse_config
 from sf_trader.ibkr import from_ibkr_symbol, to_ibkr_symbol
-from sf_trader.optimize import MaxWeight, build_constraints, clean_weights
 from sf_trader.metrics import (
     OrderMetrics,
     PortfolioMetrics,
@@ -29,23 +28,9 @@ from sf_trader.orders import (
     to_basket,
     write_basket,
 )
-from sf_trader.universe import apply_do_not_trade, apply_universe_filter
+from sf_trader.universe import apply_do_not_trade
 
 SETTINGS = OrderSettings(limit_aggressiveness=0.25, min_trade_value=50.0, capital="net_liq")
-
-
-def assets_frame() -> pl.DataFrame:
-    return pl.DataFrame(
-        {
-            "barrid": ["A", "B", "C", "D", "E"],
-            "ticker": ["AAA", "BBB", "CCC", None, "EEE"],
-            "price": [10.0, 5.0, 20.0, 30.0, 40.0],
-            "in_universe": [True, True, False, True, None],
-            "predicted_beta": [1.0, 1.0, 1.0, 1.0, 1.0],
-            "specific_risk": [20.0, 20.0, 20.0, 20.0, 20.0],
-            "market_cap": [1.0, 1.0, 1.0, 1.0, 1.0],
-        }
-    )
 
 
 def portfolio_frame(rows: list[tuple[str, float]]) -> pl.DataFrame:
@@ -55,7 +40,6 @@ def portfolio_frame(rows: list[tuple[str, float]]) -> pl.DataFrame:
                 "ticker": [row[0] for row in rows],
                 "barrid": [row[0] for row in rows],
                 "weight": [row[1] for row in rows],
-                "combined_alpha": [0.01] * len(rows),
                 "price": [100.0] * len(rows),
                 "target_shares": [1.0] * len(rows),
             }
@@ -80,11 +64,7 @@ def quotes_frame(rows: list[dict]) -> pl.DataFrame:
 def raw_config() -> dict:
     return {
         "trade_date": dt.date(2026, 11, 2),
-        "signals": ["ivol", "beta"],
-        "combination_strategy": "equal_weight",
         "do_not_trade": ["AAA"],
-        "universe": {"min_price": 5.0},
-        "constraints": {"long_only": True, "risk_aversion": 1.0},
         "orders": {"limit_aggressiveness": 0.25, "min_trade_value": 50, "capital": "net_liq"},
         "ibkr": {"host": "127.0.0.1", "port": 7497, "client_id": 1},
     }
@@ -93,7 +73,7 @@ def raw_config() -> dict:
 class TestConfig:
     def test_valid(self):
         config = parse_config(raw_config())
-        assert config.constraints.long_only and config.orders.quote_fallback == "skip"
+        assert config.do_not_trade == ("AAA",) and config.orders.quote_fallback == "skip"
 
     def test_trade_date_override(self):
         date = dt.date(2026, 11, 3)
@@ -103,15 +83,11 @@ class TestConfig:
         "change",
         [
             {"trade_date": "soon"},
-            {"signals": []},
-            {"combination_strategy": "magic"},
             {"unknown": 1},
             {"orders": {"limit_aggressiveness": 2, "min_trade_value": 50, "capital": "net_liq"}},
             {"orders": {"limit_aggressiveness": 0.2, "min_trade_value": 50, "capital": "cash"}},
             {"orders": {"limit_aggressiveness": 0.2, "min_trade_value": 50, "capital": "net_liq", "refresh_aggressiveness": 2}},
-            {"constraints": {"risk_aversion": -1}},
-            {"constraints": {"risk_aversion": 1, "typo": True}},
-            {"constraints": {"risk_aversion": 1, "unit_beta": True, "zero_beta": True}},
+            {"constraints": {"risk_aversion": 1}},
         ],
     )
     def test_invalid(self, change):
@@ -119,62 +95,58 @@ class TestConfig:
             parse_config(raw_config() | change)
 
 
-class TestUniverse:
-    def test_keeps_only_tradeable_names(self):
-        alphas = pl.DataFrame(
-            {"barrid": ["A", "B", "C", "D", "E", "Z"], "ivol": [0.1] * 6}
+class TestOptimalWeights:
+    def use_weights(self, monkeypatch, weights):
+        frame = pl.DataFrame(
+            {"date": [dt.date(2026, 11, 13)] * len(weights), "barrid": list("ABCD")[: len(weights)], "weight": weights}
         )
-        filtered, dropped = apply_universe_filter(
-            alphas, assets_frame(), 5.0, ["A", "B", "C", "D", "E"]
-        )
-        assert filtered["barrid"].to_list() == ["A"]
-        assert dropped == {
-            "not_in_russell_3000": 3,  # C is out, E is null, Z is not in assets
-            "price_at_or_below_min": 1,  # B sits exactly at the minimum
-            "no_ticker": 1,
-            "no_risk_data": 0,
-        }
+        monkeypatch.setattr(data, "_scan_weights", lambda year: frame.lazy())
 
-    def test_drops_names_without_exposures(self):
-        alphas = pl.DataFrame({"barrid": ["A"], "ivol": [0.1]})
-        filtered, dropped = apply_universe_filter(alphas, assets_frame(), 5.0, [])
-        assert filtered.is_empty() and dropped["no_risk_data"] == 1
+    def test_keeps_holdings_and_drops_solver_noise(self, monkeypatch):
+        self.use_weights(monkeypatch, [0.6, 0.4, 1e-9, -1e-9])
+        weights = data.load_weights(dt.date(2026, 11, 13))
+        assert weights["barrid"].to_list() == ["A", "B"]
+
+    def test_drops_weights_below_the_old_cutoff(self, monkeypatch):
+        self.use_weights(monkeypatch, [0.99985, 0.0001, 0.00005])
+        weights = data.load_weights(dt.date(2026, 11, 13))
+        assert weights["barrid"].to_list() == ["A", "B"]
+
+    @pytest.mark.parametrize(
+        "weights", [[1e-8, 1e-8], [0.6, 0.6], [1.1, -0.1], [0.5, float("nan"), 0.5], [0.5, None, 0.5]]
+    )
+    def test_invalid_weights_stop_the_run(self, monkeypatch, weights):
+        self.use_weights(monkeypatch, weights)
+        with pytest.raises(data.DataError, match="invalid"):
+            data.load_weights(dt.date(2026, 11, 13))
+
+    def test_latest_date_before_trade_date(self, monkeypatch):
+        self.use_weights(monkeypatch, [1.0])
+        assert data.resolve_weights_date(dt.date(2026, 11, 16)) == dt.date(2026, 11, 13)
+
+    def test_stale_weights_stop_the_run(self, monkeypatch):
+        self.use_weights(monkeypatch, [1.0])
+        with pytest.raises(data.DataError, match="Refresh the data"):
+            data.resolve_weights_date(dt.date(2026, 11, 20))
 
     def test_do_not_trade_is_excluded(self):
-        alphas = pl.DataFrame({"ticker": ["AAA", "BBB"]})
-        remaining, excluded = apply_do_not_trade(alphas, ["AAA", "NOT_THERE"])
+        holdings = pl.DataFrame({"ticker": ["AAA", "BBB"]})
+        remaining, excluded = apply_do_not_trade(holdings, ["AAA", "NOT_THERE"])
         assert remaining["ticker"].to_list() == ["BBB"] and excluded == 1
 
+    def test_portfolio_rescales_after_do_not_trade(self):
+        tradeable = pl.DataFrame(
+            {"ticker": ["BBB", "CCC"], "barrid": ["B", "C"], "weight": [0.3, 0.5], "price": [10.0, 20.0]}
+        )
+        portfolio = build_portfolio(tradeable, 1_000.0)
+        assert portfolio["weight"].to_list() == pytest.approx([0.375, 0.625])
+        assert portfolio["target_shares"].to_list() == pytest.approx([37.5, 31.25])
 
-class TestCombine:
-    def test_equal_weight(self):
-        alphas = pl.DataFrame({"a": [0.2], "b": [0.4]})
-        result = combine_alphas(alphas, ["a", "b"], "equal_weight")
-        assert result["combined_alpha"].to_list() == pytest.approx([0.3])
-
-    def test_missing_signal_counts_as_zero(self):
-        alphas = pl.DataFrame({"a": [None, 0.4], "b": [0.2, 0.4]}, schema={"a": pl.Float64, "b": pl.Float64})
-        result = combine_alphas(alphas, ["a", "b"], "equal_weight")
-        assert result["combined_alpha"].to_list() == pytest.approx([0.1, 0.4])
-
-
-class TestCleanWeights:
-    def weights(self) -> pl.DataFrame:
-        return pl.DataFrame({"barrid": ["A", "B", "C"], "weight": [0.6, 0.41, 0.00001]})
-
-    def test_full_investment_restores_the_budget(self):
-        constraints = Constraints(risk_aversion=1.0, full_investment=True)
-        cleaned = clean_weights(self.weights(), constraints)
-        assert cleaned["barrid"].to_list() == ["A", "B"]
-        assert cleaned["weight"].sum() == pytest.approx(1.0, abs=1e-4)
-
-    def test_without_full_investment_only_rounds(self):
-        cleaned = clean_weights(self.weights(), Constraints(risk_aversion=1.0))
-        assert cleaned["weight"].to_list() == [0.6, 0.41]
-
-    def test_max_weight_constraint_is_built(self):
-        built = build_constraints(Constraints(risk_aversion=1.0, long_only=True, max_weight=0.02))
-        assert MaxWeight(0.02) in built and len(built) == 2
+    def test_weights_are_rounded_like_the_old_optimizer(self):
+        tradeable = pl.DataFrame(
+            {"ticker": ["BBB", "CCC"], "barrid": ["B", "C"], "weight": [1.0, 2.0], "price": [10.0, 10.0]}
+        )
+        assert build_portfolio(tradeable, 1.0)["weight"].to_list() == [0.3333, 0.6667]
 
 
 class TestOrders:
